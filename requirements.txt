@@ -1,0 +1,25 @@
+# Core dataset library — pulls in most nuScenes-specific transitive deps
+# (pyquaternion, Shapely, cachetools, Pillow, tqdm) automatically.
+nuscenes-devkit
+
+# Explicitly force-reinstalled in the notebook's init cell — likely to fix
+# a numpy/opencv ABI mismatch against whatever ships preinstalled on Colab.
+# Version pin taken directly from that cell; keep it unless you've verified
+# a newer build works in your environment.
+numpy
+scipy
+scikit-learn
+opencv-python-headless==4.11.0.86
+
+# Used directly in the analysis/plotting cells (np.*, go.*, px.*, pd.*)
+pandas
+plotly
+
+# nuScenes' built-in render_* methods (render_sample_data,
+# render_pointcloud_in_image, render_annotation, render_egoposes_on_map, etc.)
+# are matplotlib-based; %matplotlib inline also implies this is needed.
+matplotlib
+
+# To actually run the .ipynb itself, not just the code inside it
+jupyter
+ipykernel
