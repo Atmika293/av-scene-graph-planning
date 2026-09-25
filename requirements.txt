@@ -1,3 +1,8 @@
+# This project's own src/av_scene_graph_planning package, installed in editable
+# mode so ingestion.py/transform.py/etc. are importable from scripts/ and tests/
+# without PYTHONPATH tricks. See pyproject.toml for the package config.
+-e .
+
 # Core dataset library — pulls in most nuScenes-specific transitive deps
 # (pyquaternion, Shapely, cachetools, Pillow, tqdm) automatically.
 nuscenes-devkit
