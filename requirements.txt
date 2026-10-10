@@ -28,3 +28,8 @@ matplotlib
 # To actually run the .ipynb itself, not just the code inside it
 jupyter
 ipykernel
+
+# pyarrow: schema.py/table.py's Parquet table schemas and batch writes.
+# ray: parallel/distributed batch processing for the ingestion pipeline.
+pyarrow
+ray
