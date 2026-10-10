@@ -15,7 +15,7 @@ import os
 
 from nuscenes.nuscenes import NuScenes
 
-from av_scene_graph_planning.ingestion import get_sample_tokens_from_scene
+from av_data_pipeline.ingestion import get_sample_tokens_from_scene
 
 
 def verify_scene(nusc: NuScenes, scene_token: str) -> tuple[bool, str]:

@@ -30,8 +30,8 @@ from collections import defaultdict
 
 import numpy as np
 
-from av_scene_graph_planning.ingestion import extract_sample_data_from_sample, get_sample_tokens_from_scene
-from av_scene_graph_planning.transform import *
+from av_data_pipeline.ingestion import extract_sample_data_from_sample, get_sample_tokens_from_scene
+from av_data_pipeline.transform import *
 
 
 def compute_area(x1: float, y1: float, x2: float, y2: float) -> float:

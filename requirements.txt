@@ -1,4 +1,4 @@
-# This project's own src/av_scene_graph_planning package, installed in editable
+# This project's own src/av_data_pipeline package, installed in editable
 # mode so ingestion.py/transform.py/etc. are importable from scripts/ and tests/
 # without PYTHONPATH tricks. See pyproject.toml for the package config.
 -e .

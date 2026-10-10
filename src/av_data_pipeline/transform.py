@@ -13,7 +13,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation, RigidTransform
 import cv2
 
-from av_scene_graph_planning.columns import *
+from av_data_pipeline.ingestion_keys import *
 
 
 class CameraTransformPipeline:
@@ -34,14 +34,14 @@ class CameraTransformPipeline:
                 matrix (SC_INTRINSIC), and sensor resolution (SENSOR_WD, SENSOR_HT).
         """
         # Rigid transform taking points from the ego (vehicle) frame to the global frame.
-        self.T_ego_to_global = self.__build_transform_matrix(rotation=sensor_data["EP_ROTATION"],
-                                                             translation=sensor_data["EP_TRANSLATION"])
+        self.T_ego_to_global = self.__build_transform_matrix(rotation=sensor_data[TRANSFORM_KEYS['ego_pose_rotation']],
+                                                             translation=sensor_data[TRANSFORM_KEYS['ego_pose_translation']])
         # Rigid transform taking points from the camera frame to the ego (vehicle) frame.
-        self.T_camera_to_ego = self.__build_transform_matrix(rotation=sensor_data["SC_EXT_ROTATION"],
-                                                             translation=sensor_data["SC_EXT_TRANSLATION"])
-        self.calibration_matrix = np.array(sensor_data["SC_INTRINSIC"])
-        self.sensor_width = sensor_data["SENSOR_WD"]
-        self.sensor_height = sensor_data["SENSOR_HT"]
+        self.T_camera_to_ego = self.__build_transform_matrix(rotation=sensor_data[TRANSFORM_KEYS['sensor_rotation']],
+                                                             translation=sensor_data[TRANSFORM_KEYS['sensor_translation']])
+        self.calibration_matrix = np.array(sensor_data[TRANSFORM_KEYS['intrinsic_matrix']])
+        self.sensor_width = sensor_data[TRANSFORM_KEYS['canvas_width']]
+        self.sensor_height = sensor_data[TRANSFORM_KEYS['canvas_height']]
 
 
     def __build_transform_matrix(self, rotation: np.array, translation: np.array) -> RigidTransform:
@@ -150,9 +150,9 @@ class SampleAnnotation:
             sample_annotation: Annotation record containing box dimensions (SIZE),
                 and pose rotation/translation (ANN_ROTATION, ANN_TRANSLATION).
         """
-        self.corners = self.__extract_corners(sample_annotation["SIZE"])
-        self.transform = self.__build_transform_matrix(rotation=sample_annotation["ANN_ROTATION"],
-                                                       translation=sample_annotation["ANN_TRANSLATION"])
+        self.corners = self.__extract_corners(sample_annotation[TRANSFORM_KEYS['annotation_size']])
+        self.transform = self.__build_transform_matrix(rotation=sample_annotation[TRANSFORM_KEYS['annotation_rotation']],
+                                                       translation=sample_annotation[TRANSFORM_KEYS['annotation_translation']])
 
 
     def __build_transform_matrix(self, rotation: np.array, translation: np.array) -> RigidTransform:
@@ -224,9 +224,11 @@ class SampleTransformPipeline:
         """
         self.camera_pipelines = {}
         for _, sensor_data in sample_data["CAMERA"].items():
-            self.camera_pipelines[sensor_data["SAMPLE_DATA_TOKEN"]] = CameraTransformPipeline(sensor_data)
+            sample_data_token_key = SAMPLE_DATA_INGESTION_KEYS['token']
+            self.camera_pipelines[sensor_data[sample_data_token_key]] = CameraTransformPipeline(sensor_data)
 
         self.annotations = {}
+        annotations_key = SAMPLE_INGESTION_KEYS['annotations']
         for ann_token, ann_data in sample_data["ANNOTATIONS"].items():
             if ann_data["N_LIDAR_PTS"] > 0:
                 self.annotations[ann_token] = SampleAnnotation(ann_data)
@@ -255,3 +257,11 @@ class SampleTransformPipeline:
         return canvas_bboxes
 
 
+
+def project_scene_annotations_to_canvas(scene_data: list[dict]) -> list[dict]:
+    canvas_projections = []
+
+    for sample_data in scene_data:
+        canvas_projections.append(SampleTransformPipeline(sample_data).project_to_canvas())
+
+    return canvas_projections
