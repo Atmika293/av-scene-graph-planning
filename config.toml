@@ -1,0 +1,22 @@
+# Single source of defaults for every entry point (scripts/, partition.py,
+# and the benchmark harness). An environment variable of the matching name
+# (see src/av_data_pipeline/config.py) always overrides the value here.
+
+[dataset]
+version = "v1.0-mini"
+dataroot = "data/nuscenes"
+output_root = "data/output"
+
+[partition]
+batch_size = 5
+max_in_flight = 8
+# num_cpus intentionally omitted: unset means "let Ray auto-detect and use
+# all available cores" (ray.init()'s own default). Set NUM_CPUS to compare
+# worker counts -- the benchmark harness overrides this per run.
+# num_cpus = 4
+
+[benchmark]
+worker_counts = [1, 2, 4, 8]
+repeats = 3
+cpu_sample_interval = 0.5
+report_dir = "docs/"

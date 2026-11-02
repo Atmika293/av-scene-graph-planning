@@ -33,6 +33,8 @@ from shapely.geometry import MultiPoint, box
 from nuscenes.nuscenes import NuScenes
 from nuscenes.utils.geometry_utils import view_points
 
+from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
+
 
 def post_process_coords(corner_coords: List,
                         imsize: Tuple[int, int] = (1600, 900)) -> Optional[Tuple[float, float, float, float]]:
@@ -270,8 +272,8 @@ def main(args: argparse.Namespace) -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Export 2D annotations with intermediate transform-stage values.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--dataroot', type=str, default='data/nuscenes', help="Path where nuScenes is saved.")
-    parser.add_argument('--version', type=str, default='v1.0-mini', help='Dataset version.')
+    parser.add_argument('--dataroot', type=str, default=NUSCENES_DATAROOT, help="Path where nuScenes is saved.")
+    parser.add_argument('--version', type=str, default=NUSCENES_VERSION, help='Dataset version.')
     parser.add_argument('--filename', type=str, default='image_annotations_debug.json', help='Output filename.')
     # '' is nuScenes' "unknown visibility" bin; the rest are the 4 visibility-percent buckets.
     parser.add_argument('--visibilities', type=str, default=['', '1', '2', '3', '4'],

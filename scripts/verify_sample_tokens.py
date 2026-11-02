@@ -15,6 +15,7 @@ import os
 
 from nuscenes.nuscenes import NuScenes
 
+from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
 from av_data_pipeline.ingestion import get_sample_tokens_from_scene
 
 
@@ -43,11 +44,10 @@ def verify_scene(nusc: NuScenes, scene_token: str) -> tuple[bool, str]:
 
 
 if __name__ == "__main__":
-    NUSCENES_DIR = "data/nuscenes"
     REPORT_DIR = "reports"
     REPORT_FILE = os.path.join(REPORT_DIR, "verify_sample_tokens.txt")
 
-    nusc = NuScenes(version='v1.0-mini', dataroot=NUSCENES_DIR, verbose=True)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=NUSCENES_DATAROOT, verbose=True)
 
     verified = 0
     mismatches: list[tuple[str, str, str]] = []  # (scene_token, scene_name, detail)

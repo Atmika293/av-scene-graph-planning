@@ -29,6 +29,7 @@ reports/verify_ingestion_keys.txt (overwritten each run). Nothing is printed
 to stdout; every result goes into the report file.
 """
 
+from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
 from av_data_pipeline.ingestion import (
     get_sample_tokens_from_scene,
     extract_sensor_data_from_sample_data,
@@ -112,11 +113,10 @@ if __name__ == "__main__":
     from nuscenes.nuscenes import NuScenes
     import os
 
-    NUSCENES_DIR = "data/nuscenes"
     REPORT_DIR = "reports"
     REPORT_FILE = os.path.join(REPORT_DIR, "verify_ingestion_keys.txt")
 
-    nusc = NuScenes(version='v1.0-mini', dataroot=NUSCENES_DIR, verbose=True)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=NUSCENES_DATAROOT, verbose=True)
     scene_token = nusc.scene[0]['token']
 
     sample_tracker = KeyTracker("SAMPLE_INGESTION_KEYS")
