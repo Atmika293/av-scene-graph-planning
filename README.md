@@ -20,8 +20,8 @@ Working against `nuscenes-mini` (v1.0) in `nuscenes.ipynb`. Schema exploration i
 - [ ] **Phase 2 — AV data ingestion + fusion** (in progress)
   - [x] Explore the nuScenes schema via `nuscenes-devkit` (scenes, samples, sensor calibration, ego pose)
   - [x] Single-machine ingestion: sync the 6 camera streams by nearest timestamp, threshold + visualize skew, extract ego pose + calibration to JSON
-  - [ ] Ray-parallelized ingestion, with 1-worker vs. N-worker throughput benchmark
-  - [ ] Pixel → ego → world SE(3) projection, validated by reprojecting ground-truth 3D boxes and measuring IoU
+  - [x] Ray-parallelized ingestion, with 1-worker vs. N-worker throughput benchmark
+  - [x] Pixel → ego → world SE(3) projection, validated by reprojecting ground-truth 3D boxes and measuring IoU
   - [ ] BEV visualization of fused points
   - [ ] *(optional)* CAN bus EKF pose estimate vs. nuScenes ground-truth pose
 - [ ] **Phase 3 — Scene graph + VLA ablation + eval:** Grounding DINO + SAM instance masks, 3D scene graph, LightEMMA baseline vs. scene-graph-context comparison
