@@ -26,7 +26,7 @@ from av_data_pipeline.ingestion_keys import *
 SAMPLE_COLUMNS = {
     "sample_token": SAMPLE_INGESTION_KEYS['token'],
     "scene_token": SAMPLE_INGESTION_KEYS['scene_token'],
-    "timestamp": SAMPLE_INGESTION_KEYS['sample_ts']
+    "timestamp": SAMPLE_INGESTION_KEYS['timestamp']
 }
 
 # Same mapping for the sample_data table (one row per sensor reading).
@@ -35,28 +35,28 @@ SAMPLE_DATA_COLUMNS = {
     "sample_data_token": SAMPLE_DATA_INGESTION_KEYS['token'],
     "modality": SAMPLE_DATA_INGESTION_KEYS['modality'],
     "channel": SAMPLE_DATA_INGESTION_KEYS['channel'],
-    "filepath": 'SD_FILEPATH',
-    "timestamp": 'SD_TIMESTAMP',
-    "width": 'SENSOR_WD',
-    "height": 'SENSOR_HT',
-    "ego_x": ('EP_TRANSLATION', 0),
-    "ego_y": ('EP_TRANSLATION', 1),
-    "ego_z": ('EP_TRANSLATION', 2),
-    "eqo_qw": ('EP_ROTATION', 0),
-    "ego_qx": ('EP_ROTATION', 1),
-    "ego_qy": ('EP_ROTATION', 2),
-    "ego_qx": ('EP_ROTATION', 3),
-    "sensor_x": ('SC_EXT_TRANSLATION', 0),
-    "sensor_y": ('SC_EXT_TRANSLATION', 1),
-    "sensor_z": ('SC_EXT_TRANSLATION', 2),
-    "sensor_qw": ('SC_EXT_ROTATION', 0),
-    "sensor_qx": ('SC_EXT_ROTATION', 1),
-    "sensor_qy": ('SC_EXT_ROTATION', 2),
-    "sensor_qz": ('SC_EXT_ROTATION', 3),
-    "cam_fx": ("SC_INTRINSIC", 0, 0),
-    "cam_cx": ("SC_INTRINSIC", 0, 2),
-    "cam_fy": ("SC_INTRINSIC", 1, 1),
-    "cam_cy": ("SC_INTRINSIC", 1, 2),
+    "filepath": SAMPLE_DATA_INGESTION_KEYS['filepath'],
+    "timestamp": SAMPLE_DATA_INGESTION_KEYS['timestamp'],
+    "width": TRANSFORM_KEYS['canvas_width'],
+    "height": TRANSFORM_KEYS['canvas_height'],
+    "ego_tx": (TRANSFORM_KEYS['ego_pose_translation'], 0),
+    "ego_ty": (TRANSFORM_KEYS['ego_pose_translation'], 1),
+    "ego_tz": (TRANSFORM_KEYS['ego_pose_translation'], 2),
+    "ego_qw": (TRANSFORM_KEYS['ego_pose_rotation'], 0),
+    "ego_qx": (TRANSFORM_KEYS['ego_pose_rotation'], 1),
+    "ego_qy": (TRANSFORM_KEYS['ego_pose_rotation'], 2),
+    "ego_qz": (TRANSFORM_KEYS['ego_pose_rotation'], 3),
+    "sensor_tx": (TRANSFORM_KEYS['sensor_translation'], 0),
+    "sensor_ty": (TRANSFORM_KEYS['sensor_translation'], 1),
+    "sensor_tz": (TRANSFORM_KEYS['sensor_translation'], 2),
+    "sensor_qw": (TRANSFORM_KEYS['sensor_rotation'], 0),
+    "sensor_qx": (TRANSFORM_KEYS['sensor_rotation'], 1),
+    "sensor_qy": (TRANSFORM_KEYS['sensor_rotation'], 2),
+    "sensor_qz": (TRANSFORM_KEYS['sensor_rotation'], 3),
+    "cam_fx": (TRANSFORM_KEYS['intrinsic_matrix'], 0, 0),
+    "cam_cx": (TRANSFORM_KEYS['intrinsic_matrix'], 0, 2),
+    "cam_fy": (TRANSFORM_KEYS['intrinsic_matrix'], 1, 1),
+    "cam_cy": (TRANSFORM_KEYS['intrinsic_matrix'], 1, 2),
 }
 
 
@@ -64,23 +64,23 @@ SAMPLE_DATA_COLUMNS = {
 SAMPLE_ANNOTATION_COLUMNS = {
     "sample_token": '',
     "annotation_token": SAMPLE_ANNOTATION_INGESTION_KEYS['token'],
-    "instance_token": 'INSTANCE_TOKEN',
-    "prev_annotation": 'PREV_ANNOTATION',
-    "next_annotation": 'NEXT_ANNOTATION',
-    "category_name": 'CATEGORY',
-    "visibility_token": 'VISIBILITY_TOKEN',
-    "tx": ('ANN_TRANSLATION', 0),
-    "ty": ('ANN_TRANSLATION', 1),
-    "tz": ('ANN_TRANSLATION', 2),
-    "qw": ('ANN_ROTATION', 0),
-    "qx": ('ANN_ROTATION', 1),
-    "qy": ('ANN_ROTATION', 2),
-    "qz": ('ANN_ROTATION', 3),
-    "wd": ('SIZE', 0),
-    "ln": ('SIZE', 1),
-    "ht": ('SIZE', 2),
-    "num_lidar_pts": 'N_LIDAR_PTS',
-    "num_radar_pts": 'N_RADAR_PTS',
+    "instance_token": SAMPLE_ANNOTATION_INGESTION_KEYS['instance_token'],
+    "prev_annotation": SAMPLE_ANNOTATION_INGESTION_KEYS['previous_annotation'],
+    "next_annotation": SAMPLE_ANNOTATION_INGESTION_KEYS['next_annotation'],
+    "category_name": SAMPLE_ANNOTATION_INGESTION_KEYS['category'],
+    "visibility_token": SAMPLE_ANNOTATION_INGESTION_KEYS['visibility_token'],
+    "tx": (TRANSFORM_KEYS['annotation_translation'], 0),
+    "ty": (TRANSFORM_KEYS['annotation_translation'], 1),
+    "tz": (TRANSFORM_KEYS['annotation_translation'], 2),
+    "qw": (TRANSFORM_KEYS['annotation_rotation'], 0),
+    "qx": (TRANSFORM_KEYS['annotation_rotation'], 1),
+    "qy": (TRANSFORM_KEYS['annotation_rotation'], 2),
+    "qz": (TRANSFORM_KEYS['annotation_rotation'], 3),
+    "wd": (TRANSFORM_KEYS['annotation_size'], 0),
+    "ln": (TRANSFORM_KEYS['annotation_size'], 1),
+    "ht": (TRANSFORM_KEYS['annotation_size'], 2),
+    "num_lidar_pts": SAMPLE_ANNOTATION_INGESTION_KEYS['n_lidar'],
+    "num_radar_pts": SAMPLE_ANNOTATION_INGESTION_KEYS['n_radar'],
 }
 
 # Same mapping for the canvas_bboxes table (one row per clipped 2D projection);
@@ -96,11 +96,11 @@ CANVAS_BOXES_COLUMNS = {
 }
 
 # pyarrow schema for the sample table.
-sample_schema = {[
+sample_schema = pa.schema([
     ('sample_token', pa.string()),
     ('scene_token', pa.string()),
     ('timestamp', pa.int64()),
-]}
+])
 
 # pyarrow schema for the sample_data table.
 sample_data_schema = pa.schema([
@@ -108,15 +108,14 @@ sample_data_schema = pa.schema([
     ('sample_data_token', pa.string()),
     ('modality', pa.dictionary(pa.int8(), pa.string())), # categorical
     ('channel', pa.dictionary(pa.int8(), pa.string())),   # categorical
-    ('filename', pa.string()),
+    ('filepath', pa.string()),
     ('timestamp', pa.int64()),
-    ('skew_ms', pa.int64()),
     ('width', pa.int32()),
     ('height', pa.int32()),
-    ('ego_x', pa.float64()), ('ego_y', pa.float64()), ('ego_z', pa.float64()),
+    ('ego_tx', pa.float64()), ('ego_ty', pa.float64()), ('ego_tz', pa.float64()),
     ('ego_qw', pa.float64()), ('ego_qx', pa.float64()), ('ego_qy', pa.float64()), ('ego_qz', pa.float64()),
     ('sensor_tx', pa.float64()), ('sensor_ty', pa.float64()), ('sensor_tz', pa.float64()),
-    ('sensor_qw', pa.float64()), ('sensor_qx', pa.float64()), ('sensor_qy', pa.float64()), ('cal_qz', pa.float64()),
+    ('sensor_qw', pa.float64()), ('sensor_qx', pa.float64()), ('sensor_qy', pa.float64()), ('sensor_qz', pa.float64()),
     ('cam_fx', pa.float64()), ('cam_fy', pa.float64()), ('cam_cx', pa.float64()), ('cam_cy', pa.float64()),
 ])
 
@@ -135,9 +134,9 @@ sample_annotation_schema = pa.schema([
 ])
 
 # pyarrow schema for the canvas_bboxes table.
-canvas_bboxes_schema = {[
+canvas_bboxes_schema = pa.schema([
     ('annotation_token', pa.string()),
     ('sample_data_token', pa.string()),
     ('xmin', pa.float64()), ('ymin', pa.float64()), 
     ('xmax', pa.float64()), ('ymax', pa.float64()), 
-]}
+])

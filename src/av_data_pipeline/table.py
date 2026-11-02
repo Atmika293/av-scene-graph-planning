@@ -7,6 +7,8 @@ sample_annotation/canvas_bbox tables (via schema.py's *_COLUMNS mappings and
 utils.construct_table_row), and batches rows out to Parquet files matching
 schema.py's pyarrow schemas.
 """
+import os
+import time
 
 from av_data_pipeline.schema import *
 from av_data_pipeline.utils import *
@@ -59,7 +61,7 @@ def build_sample_annotation_row(sample_token: str, annotation_data: dict) -> dic
     Returns:
         A flat row dict per schema.SAMPLE_DATA_COLUMNS, with 'sample_token' set.
     """
-    row = construct_table_row(annotation_data, SAMPLE_DATA_COLUMNS)
+    row = construct_table_row(annotation_data, SAMPLE_ANNOTATION_COLUMNS)
     row['sample_token'] = sample_token
 
     return row
@@ -86,8 +88,11 @@ def build_canvas_bbox_row(annotation_token: str, sample_data_token: str, bbox: l
     }
 
 def write_batch_table_to_file(batch_id: str, table_name: str, table_rows: list[dict],
-                        table_schema: pa.schema, output_root: str) -> None:
+                        table_schema: pa.schema, output_root: str) -> float:
     """Write one batch of table rows to a Parquet file.
+
+    Creates the <output_root>/<table_name> output folder first if it doesn't
+    already exist.
 
     Args:
         batch_id: Identifier for this batch, used in the output filename.
@@ -97,10 +102,18 @@ def write_batch_table_to_file(batch_id: str, table_name: str, table_rows: list[d
         table_schema: pyarrow schema the rows are validated/written against.
         output_root: Root directory rows are written under, as
             <output_root>/<table_name>/batch_<batch_id>.parquet.
+
+    Returns:
+        Seconds spent inside pq.write_table -- the benchmark harness' disk-write
+        component of a task's total duration.
     """
+    os.makedirs(f'{output_root}/{table_name}', exist_ok=True)
     table = pa.Table.from_pylist(table_rows, table_schema)
     output_path = f'{output_root}/{table_name}/batch_{batch_id}.parquet'
+
+    write_start = time.perf_counter()
     pq.write_table(table, output_path)
+    return time.perf_counter() - write_start
 
 
 def extract_sample_rows(scene_data: list[dict]) -> list[dict]:
@@ -115,7 +128,7 @@ def extract_sample_rows(scene_data: list[dict]) -> list[dict]:
     rows = []
 
     for sample_data in scene_data:
-        rows.append(build_sample_data_row(sample_data))
+        rows.append(build_sample_row(sample_data))
 
     return rows
 
@@ -158,7 +171,7 @@ def extract_sample_annotations_rows(scene_data: list[dict]) -> list[dict]:
     for sample_data in scene_data:
         sample_token = sample_data[SAMPLE_INGESTION_KEYS['token']]
 
-        for annotation_data in sample_data[SAMPLE_INGESTION_KEYS['annotations']]:
+        for _, annotation_data in sample_data[SAMPLE_INGESTION_KEYS['annotations']].items():
             rows.append(build_sample_annotation_row(sample_token, annotation_data))
 
     return rows

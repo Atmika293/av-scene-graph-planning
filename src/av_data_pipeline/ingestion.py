@@ -46,6 +46,39 @@ def get_sample_tokens_from_scene(nusc: NuScenes, scene_token: str) -> list[str]:
     return sample_tokens
 
 
+def get_sample_token_from_scene_dict(nusc: NuScenes, scene_dict: dict) -> list[str]:
+    """Return all sample tokens belonging to a scene, in temporal order.
+
+    Same walk as get_sample_tokens_from_scene, but takes the scene record
+    directly instead of a scene_token -- for callers (e.g. partition.py)
+    that already have the scene dict in hand and would otherwise cause a
+    redundant nusc.get(SCENE_TABLE, scene_token) lookup.
+
+    Args:
+        nusc: NuScenes devkit instance used to look up records.
+        scene_dict: The scene record to walk (e.g. one entry of nusc.scene).
+
+    Returns:
+        list[str]: Sample tokens for the scene, ordered from first to last.
+    """
+    # Extract the first and last sample token for the scene
+    sample_token = scene_dict[FIRST_SAMPLE_TOKEN]
+    last_sample_token = scene_dict[LAST_SAMPLE_TOKEN]
+
+    # Loop over the sample tokens belonging to a scene by using the
+    # 'next' attribute in the sample dict
+    sample_tokens = [sample_token]
+    while sample_token != last_sample_token:
+        sample = nusc.get(SAMPLE_TABLE, sample_token)
+        next_sample_token = sample[NEXT_SAMPLE_TOKEN]
+        sample_tokens.append(next_sample_token)
+        sample_token = next_sample_token
+
+    sample_tokens.append(last_sample_token)
+
+    return sample_tokens
+
+
 def extract_sensor_data_from_sample_data(nusc: NuScenes, sample_data_token: str) -> dict:
     """Extract sensor readings, ego pose, and calibration for one sample_data record.
 
@@ -135,16 +168,16 @@ def extract_sample_data_from_sample(nusc: NuScenes, sample_token: str) -> dict:
         that channel's sensor_data dict.
     """
     # Sample record holds per-channel sample_data tokens plus the reference timestamp and annotations
-    sample = nusc.get('sample', sample_token)
-    sample_data_tokens = sample['data']
-    sample_ts = sample['timestamp']
-    sample_ann_tokens = sample['anns']
+    sample = nusc.get(SAMPLE_TABLE, sample_token)
+    sample_data_tokens = sample[SAMPLE_DATA_TOKENS]
+    sample_ts = sample[SAMPLE_TIMESTAMP]
+    sample_ann_tokens = sample[SAMPLE_ANNOTATION_TOKENS]
 
     # Initialize the sample aggregate dict
     sample_data = {
                     SAMPLE_INGESTION_KEYS['token']: sample_token, 
                     SAMPLE_INGESTION_KEYS['scene_token']: sample['scene_token'],
-                    SAMPLE_INGESTION_KEYS['sample_ts']: sample_ts
+                    SAMPLE_INGESTION_KEYS['timestamp']: sample_ts
                    }
 
     # sample_data_tokens maps channel name -> sample_data token; loop over every channel/sensor
@@ -197,6 +230,30 @@ def build_scene_data(nusc: NuScenes, scene_token: str) -> list[dict]:
     """
     scene_data = []
     for sample_token in get_sample_tokens_from_scene(nusc, scene_token):
+        scene_data.append(extract_sample_data_from_sample(nusc, sample_token))
+
+    return scene_data
+
+
+def build_scene_data_from_scene_dict(nusc: NuScenes, scene_dict: dict) -> list[dict]:
+    """Aggregate sensor data and annotations for every sample in a scene.
+
+    Same as build_scene_data, but takes the scene record directly instead of
+    a scene_token -- for callers (e.g. partition.py) that already have the
+    scene dict in hand and would otherwise cause a redundant
+    nusc.get(SCENE_TABLE, scene_token) lookup.
+
+    Args:
+        nusc: NuScenes devkit instance used to look up records.
+        scene_dict: The scene record to aggregate (e.g. one entry of nusc.scene).
+
+    Returns:
+        One aggregate dict per sample in the scene, in temporal order (see
+        extract_sample_data_from_sample), as produced by walking the scene's
+        sample tokens via get_sample_token_from_scene_dict.
+    """
+    scene_data = []
+    for sample_token in get_sample_token_from_scene_dict(nusc, scene_dict):
         scene_data.append(extract_sample_data_from_sample(nusc, sample_token))
 
     return scene_data

@@ -25,19 +25,30 @@ ingestion.py checks extracted sensor readings against.
 SAMPLE_INGESTION_KEYS = {
     "token": "SAMPLE_TOKEN",
     "scene_token": "SCENE_TOKEN",
-    "sample_ts": "SAMPLE_TIMESTAMP",
+    "timestamp": "SAMPLE_TIMESTAMP",
     "annotations": "ANNOTATIONS"
 }
 
 SAMPLE_DATA_INGESTION_KEYS = {
     "token": "SAMPLE_DATA_TOKEN",
     "modality": "SENSOR_MODALITY",
-    "channel": "SENSOR_CHANNEL"
+    "channel": "SENSOR_CHANNEL",
+    "timestamp": "SD_TIMESTAMP",
+    "filepath": "SD_FILEPATH",
+    "file_format": "SD_FILE_FORMAT"
 }
 
 SAMPLE_ANNOTATION_INGESTION_KEYS = {
     "token": "ANNOTATION_TOKEN",
-    "visibility_range": "VISIBILITY_RANGE"
+    "visibility_range": "VISIBILITY_RANGE",
+    "n_lidar": "N_LIDAR_PTS",
+    "n_radar": "N_RADAR_PTS",
+    "instance_token": "INSTANCE_TOKEN",
+    "visibility_token": "VISIBILITY_TOKEN",
+    "next_annotation": "NEXT_ANNOTATION",
+    "previous_annotation": "PREVIOUS_ANNOTATION",
+    "category": "CATEGORY"
+
 }
 
 TRANSFORM_KEYS = {
@@ -66,9 +77,9 @@ EGO_POSE_KEYS_MAP = {
 # already known to the caller), hence the empty string.
 SENSOR_DATA_KEYS_MAP = {
 	SAMPLE_DATA_INGESTION_KEYS['token']: '',
-    "SD_TIMESTAMP": 'timestamp',
-    "SD_FILEPATH": 'filename',
-    "SD_FILE_FORMAT": 'fileformat',
+    SAMPLE_DATA_INGESTION_KEYS['timestamp']: 'timestamp',
+    SAMPLE_DATA_INGESTION_KEYS['filepath']: 'filename',
+    SAMPLE_DATA_INGESTION_KEYS['file_format']: 'fileformat',
     TRANSFORM_KEYS['canvas_height']: 'height',
     TRANSFORM_KEYS['canvas_width']: 'width',
     SAMPLE_DATA_INGESTION_KEYS['modality']: 'sensor_modality',
@@ -87,16 +98,16 @@ SENSOR_CALIBRATION_KEYS_MAP = {
 # Aggregate key constant -> raw nuScenes sample_annotation field name.
 SAMPLE_ANNOTATION_KEYS_MAP = {
     SAMPLE_ANNOTATION_INGESTION_KEYS['token']: '',
-    "INSTANCE_TOKEN": 'instance_token',
-    "VISIBILITY_TOKEN": 'visibility_token',
-    "NEXT_ANNOTATION": 'next',
-    "PREVIOUS_ANNOTATION": 'prev',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['instance_token']: 'instance_token',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['visibility_token']: 'visibility_token',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['next_annotation']: 'next',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['previous_annotation']: 'prev',
     TRANSFORM_KEYS['annotation_translation']: 'translation',
     TRANSFORM_KEYS['annotation_rotation']: 'rotation',
     TRANSFORM_KEYS['annotation_size']: 'size',
-    "CATEGORY": 'category_name',
-    "N_LIDAR_PTS": 'num_lidar_pts',
-    "N_RADAR_PTS": 'num_radar_pts',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['category']: 'category_name',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['n_lidar']: 'num_lidar_pts',
+    SAMPLE_ANNOTATION_INGESTION_KEYS['n_radar']: 'num_radar_pts',
     SAMPLE_ANNOTATION_INGESTION_KEYS['visibility_range']: ''
 }
 

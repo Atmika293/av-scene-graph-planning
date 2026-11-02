@@ -28,7 +28,7 @@ def extract_key_values(extract_dict: dict, record, keys_map: dict[str, str]):
 
 def multiindex(obj: object, multi_index: tuple):
     for idx in multi_index:
-        if obj is None or len(obj) > 0:
+        if obj is None or len(obj) == 0:
             return None
 
         obj = obj[idx]
@@ -37,7 +37,7 @@ def multiindex(obj: object, multi_index: tuple):
 
 def construct_table_row(record: dict, columns_map: dict):
     row = {}
-    for col, key in columns_map:
+    for col, key in columns_map.items():
         if len(key) > 0:
             if isinstance(key, tuple):
                 row[col] = multiindex(record, key)

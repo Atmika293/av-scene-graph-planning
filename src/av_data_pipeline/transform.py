@@ -229,8 +229,8 @@ class SampleTransformPipeline:
 
         self.annotations = {}
         annotations_key = SAMPLE_INGESTION_KEYS['annotations']
-        for ann_token, ann_data in sample_data["ANNOTATIONS"].items():
-            if ann_data["N_LIDAR_PTS"] > 0:
+        for ann_token, ann_data in sample_data[annotations_key].items():
+            if ann_data[SAMPLE_ANNOTATION_INGESTION_KEYS['n_lidar']] > 0:
                 self.annotations[ann_token] = SampleAnnotation(ann_data)
 
 
