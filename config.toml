@@ -20,3 +20,9 @@ worker_counts = [1, 2, 4, 8]
 repeats = 3
 cpu_sample_interval = 0.5
 report_dir = "docs/"
+
+[correctness]
+# Floor on projected bbox area (px^2) below which a pair is excluded from
+# visualize_projections.py's worst/best image selection -- see
+# scripts/visualize_projections.py's MIN_BBOX_AREA comment for why.
+min_bbox_area = 500

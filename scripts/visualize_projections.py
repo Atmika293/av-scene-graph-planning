@@ -32,7 +32,7 @@ import os
 
 import cv2
 
-from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
+from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT, CORRECTNESS_MIN_BBOX_AREA
 
 DATA_FILE = "reports/evaluate_projections_data.jsonl"
 SELECTED_FILE = "reports/selected_projections.json"
@@ -43,11 +43,14 @@ NUM_IMAGES_PER_GROUP = 5
 # box's area is near zero (a sub-pixel float32-vs-float64 rounding gap can
 # swing IOU sharply), so ranking by raw IOU ascending with no area floor
 # systematically surfaces degenerate, edge-clipped slivers rather than
-# genuinely informative near-misses. 500px^2 trims only that degenerate
-# tail (areas 1-100px^2 in practice) -- it's well below the 5th-percentile
-# box area (~750px^2 on the mini dataset), so it doesn't exclude real small
-# or distant objects, just sub-pixel artifacts.
-MIN_BBOX_AREA = 500
+# genuinely informative near-misses. The default, 500px^2, trims only that
+# degenerate tail (areas 1-100px^2 in practice) -- it's well below the
+# 5th-percentile box area (~750px^2 on the mini dataset), so it doesn't
+# exclude real small or distant objects, just sub-pixel artifacts.
+# Configurable via config.toml's [correctness] min_bbox_area (or the
+# CORRECTNESS_MIN_BBOX_AREA env var) since the right floor depends on the
+# dataset's own area distribution -- see av_data_pipeline.config.
+MIN_BBOX_AREA = CORRECTNESS_MIN_BBOX_AREA
 
 OUR_BOX_COLOR = (0, 0, 255)  # red, BGR (cv2 convention)
 REF_BOX_COLOR = (0, 255, 0)  # green, BGR

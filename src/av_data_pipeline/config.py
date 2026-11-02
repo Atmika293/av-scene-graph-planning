@@ -57,3 +57,6 @@ BENCHMARK_REPEATS = _get("benchmark", "repeats", "BENCHMARK_REPEATS", cast=int)
 BENCHMARK_CPU_SAMPLE_INTERVAL = _get("benchmark", "cpu_sample_interval",
                                      "BENCHMARK_CPU_SAMPLE_INTERVAL", cast=float)
 BENCHMARK_REPORT_DIR = _get("benchmark", "report_dir", "BENCHMARK_REPORT_DIR")
+
+CORRECTNESS_MIN_BBOX_AREA = _get("correctness", "min_bbox_area", "CORRECTNESS_MIN_BBOX_AREA",
+                                 cast=float, default=500)
