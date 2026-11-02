@@ -27,6 +27,59 @@ from av_data_pipeline.report_html import KATEX_CDN_HTML
 REPORT_DIR = "docs"
 OUTPUT_FILE = os.path.join(REPORT_DIR, "index.html")
 
+# Narrative context for the quantitative sections below: what was built, in
+# what order, and why -- so a reader lands on the charts already knowing
+# what question each one is answering. Deliberately static prose (not
+# computed from report data) since it describes the overall process rather
+# than any one run's results; update it by hand as new phases land.
+OVERVIEW_HTML = """<section id="overview">
+<h2>Overview</h2>
+<p class="chart-note">This project applies autonomous-vehicle perception techniques to the
+<a href="https://www.nuscenes.org/">nuScenes</a> dataset, building
+up a data pipeline one validated stage at a time rather than assembling it all at once and debugging
+from the end. The two sections below are the quantitative output of that process so far; this
+overview gives the story that connects them.</p>
+
+<h3>What's been built, in order</h3>
+<ul class="chart-note" style="margin:4px 0 8px 20px; padding:0;">
+<li><strong>Foundations.</strong> Before writing any pipeline code: camera calibration /
+projective geometry (how a 3D point maps to a pixel) and SE(3) rigid-body transforms
+(representing and composing 3D poses/rotations) -- the math every later stage depends on.</li>
+<li><strong>Schema exploration + single-machine ingestion.</strong> Walked the nuScenes schema
+(scenes, samples, sensor calibration, ego pose) via the devkit, then synced the 6 camera streams
+per sample by nearest timestamp, thresholded + visualized the resulting skew, and wrote the
+synced records plus ego pose/calibration out to JSON.</li>
+<li><strong>Ray-parallelized ingestion.</strong> Re-ran that ingestion under
+<a href="https://www.ray.io/">Ray</a> across a range of worker counts, to see whether -- and how
+much -- parallelizing it actually helps, and where the cost of parallelism itself shows up. The
+<a href="#performance">Performance</a> section below is that benchmark.</li>
+<li><strong>Pixel &rarr; ego &rarr; world projection, validated.</strong> Implemented the SE(3)
+chain that projects a 3D point from camera space through ego space into world space (and its
+inverse, pixel &rarr; 3D), then checked it against ground truth by reprojecting each labeled 3D box
+back into every camera it's visible in and comparing the result to nuScenes' own 2D box via IOU.
+The <a href="#correctness">Correctness</a> section below is that validation.</li>
+</ul>
+
+<h3>What this has shown so far</h3>
+<ul class="chart-note" style="margin:4px 0 8px 20px; padding:0;">
+<li><strong>Parallelism has a floor, not just a ceiling.</strong> Throughput improves with more
+workers only up to a point set by the machine's actual core count and the fixed per-worker cost
+(interpreter startup, imports, <code>ray.init()</code>) -- see the Performance section's
+per-chart Observations for the specific numbers on this machine.</li>
+<li><strong>The projection math checks out.</strong> On real, non-degenerate boxes the reprojected
+box agrees with nuScenes' reference box to well under a pixel (IOU far above 0.99). Where IOU drops,
+it's almost always because the box itself is tiny or edge-clipped (a few px&sup2;), where IOU is
+inherently sensitive to sub-pixel differences -- not a flaw in the projection. That's also why the
+area cutoff used elsewhere in this pipeline is a configurable setting
+(<code>config.toml</code>'s <code>min_bbox_area</code>) rather than a hardcoded constant: the right
+floor depends on the dataset's own area distribution.</li>
+<li><strong>Measure before explaining.</strong> Every number quoted in the sections below --
+startup overhead, speedup, wait-time spread, CPU utilization, IOU by category/camera/size -- is
+computed from the pipeline's own run data each time this report is rebuilt, not hand-picked, so the
+explanations stay accurate if re-run on different hardware or a different sweep.</li>
+</ul>
+</section>"""
+
 # (anchor matching the fragment's own <section id="...">, nav label, fragment path)
 SECTIONS = [
     ("performance", "Performance", os.path.join(REPORT_DIR, "_performance_section.html")),
@@ -90,7 +143,10 @@ def build_page(fragments: list[tuple[str, str, str]]) -> str:
     """
     plotlyjs_script = extract_plotlyjs_script(fragments)
 
-    nav_links = " ".join(f'<a href="#{anchor}">{label}</a>' for anchor, label, _ in fragments)
+    nav_links = " ".join(
+        [f'<a href="#overview">Overview</a>']
+        + [f'<a href="#{anchor}">{label}</a>' for anchor, label, _ in fragments]
+    )
     # Each fragment keeps its own embedded copy of both CDN resources for
     # standalone viewing; strip them here since the combined page loads
     # plotly.js and KaTeX once each, in <head>. KATEX_CDN_HTML is a known,
@@ -121,6 +177,7 @@ def build_page(fragments: list[tuple[str, str, str]]) -> str:
 </head>
 <body>
 <nav>{nav_links}</nav>
+{OVERVIEW_HTML}
 {sections_html}
 </body>
 </html>
