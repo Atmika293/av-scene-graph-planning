@@ -24,12 +24,21 @@ verified counts and mismatch details, IOU statistics, canvas-intersection
 agreement, and the skipped-annotation count — to reports/evaluate_projections.txt
 (overwritten each run). Nothing is printed to stdout; every result goes into
 the report file.
+
+It also writes reports/evaluate_projections_data.jsonl: one line per
+(annotation, camera) pair that had both a computed and a reference bbox,
+with its IOU, category, instance token, camera channel, projected bbox
+area, and both boxes' own coordinates. This is the raw data behind
+visualize_projections.py's worst-N image selection (and the boxes it
+draws) and build_correctness_report.py's IOU-vs-category/size/camera
+charts (Phases 4-5).
 """
 
 from collections import defaultdict
 
 import numpy as np
 
+from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
 from av_data_pipeline.ingestion import extract_sample_data_from_sample, get_sample_tokens_from_scene
 from av_data_pipeline.transform import *
 
@@ -179,14 +188,14 @@ if __name__ == "__main__":
     from nuscenes.nuscenes import NuScenes
     import json, os
 
-    NUSCENES_DIR = "data/nuscenes"
-    IMAGE_ANN_FILE = "v1.0-mini/image_annotations_debug.json"
+    IMAGE_ANN_FILE = os.path.join(NUSCENES_VERSION, "image_annotations_debug.json")
     REPORT_DIR = "reports"
     REPORT_FILE = os.path.join(REPORT_DIR, "evaluate_projections.txt")
+    DATA_FILE = os.path.join(REPORT_DIR, "evaluate_projections_data.jsonl")
 
-    nusc = NuScenes(version='v1.0-mini', dataroot=NUSCENES_DIR, verbose=True)
+    nusc = NuScenes(version=NUSCENES_VERSION, dataroot=NUSCENES_DATAROOT, verbose=True)
 
-    with open(os.path.join(NUSCENES_DIR, IMAGE_ANN_FILE)) as fp:
+    with open(os.path.join(NUSCENES_DATAROOT, IMAGE_ANN_FILE)) as fp:
         image_annotations = json.load(fp)
 
     # Index reference records by annotation token for fast per-sample lookup,
@@ -200,7 +209,10 @@ if __name__ == "__main__":
     sensor_stage = StageTracker("camera -> sensor (pre-clip)")
     canvas_stage = StageTracker("clip -> canvas (bbox)")
 
-    ious: list[tuple[str, str, float]] = []
+    # One entry per (annotation, camera) pair with both a computed and a
+    # reference bbox -- the IOU comparison, plus the metadata
+    # visualize_projections.py/build_correctness_report.py need (Phases 4-5).
+    projection_records: list[dict] = []
     missing_bbox: list[tuple[str, str]] = []  # reference has a clipped bbox, ours doesn't
     extra_bbox: list[tuple[str, str]] = []  # ours has a clipped bbox, reference doesn't
     agreed_no_bbox = 0  # neither pipeline finds a canvas intersection
@@ -216,7 +228,13 @@ if __name__ == "__main__":
             sample_data = extract_sample_data_from_sample(nusc, sample_token)
             sample_transform_pipeline = SampleTransformPipeline(sample_data)
 
+            # Keyed here once per sample so the comparison loop below can look
+            # up each annotation's CATEGORY/INSTANCE_TOKEN without re-walking
+            # sample_data["ANNOTATIONS"] (which SampleTransformPipeline.annotations
+            # -- built from N_LIDAR_PTS > 0 entries only -- doesn't carry).
+            ann_meta_by_token: dict[str, dict] = {}
             for annotation_token, ann_data in sample_data["ANNOTATIONS"].items():
+                ann_meta_by_token[annotation_token] = ann_data
                 if ann_data["N_LIDAR_PTS"] == 0 and annotation_token in annotations_by_token:
                     skipped_zero_lidar_tokens.add(annotation_token)
                     skipped_zero_lidar_rows += len(annotations_by_token[annotation_token])
@@ -254,7 +272,18 @@ if __name__ == "__main__":
 
                         # Original IOU-based comparison strategy.
                         iou = compute_iou(bbox, ref_bbox)
-                        ious.append((annotation_token, data_token, iou))
+                        ann_meta = ann_meta_by_token[annotation_token]
+                        projection_records.append({
+                            "annotation_token": annotation_token,
+                            "data_token": data_token,
+                            "instance_token": ann_meta["INSTANCE_TOKEN"],
+                            "category": ann_meta["CATEGORY"],
+                            "camera_channel": nusc.get("sample_data", data_token)["channel"],
+                            "iou": float(iou),
+                            "area": float(compute_area(*bbox)),
+                            "bbox": [float(v) for v in bbox],
+                            "ref_bbox": [float(v) for v in ref_bbox],
+                        })
                     elif bbox is not None and ref_bbox is None:
                         extra_bbox.append((annotation_token, data_token))
                     elif bbox is None and ref_bbox is not None:
@@ -269,14 +298,14 @@ if __name__ == "__main__":
     report.extend(canvas_stage.report_lines())
 
     report.append("--- IOU (clipped bbox vs reference) ---")
-    if ious:
-        values = np.array([iou for _, _, iou in ious])
+    if projection_records:
+        values = np.array([r["iou"] for r in projection_records])
         report.append(f"Count: {len(values)}")
         report.append(f"Min: {values.min():.6f}  Max: {values.max():.6f}  "
                       f"Mean: {values.mean():.6f}  Median: {np.median(values):.6f}")
         report.append("Worst 10:")
-        for ann_token, data_token, iou in sorted(ious, key=lambda x: x[2])[:10]:
-            report.append(f"  ({ann_token}, {data_token}): {iou:.6f}")
+        for r in sorted(projection_records, key=lambda r: r["iou"])[:10]:
+            report.append(f"  ({r['annotation_token']}, {r['data_token']}): {r['iou']:.6f}")
     else:
         report.append("No IOU pairs computed.")
     report.append("")
@@ -300,3 +329,7 @@ if __name__ == "__main__":
     os.makedirs(REPORT_DIR, exist_ok=True)
     with open(REPORT_FILE, "w") as outfile:
         outfile.write("\n".join(report) + "\n")
+
+    with open(DATA_FILE, "w") as data_outfile:
+        for r in projection_records:
+            data_outfile.write(json.dumps(r) + "\n")
