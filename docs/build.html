@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build log · AV Perception</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "\\(", right: "\\)", display: false},
+            {left: "\\[", right: "\\]", display: true}
+        ]
+    });
+});
+</script>
+
+<style>
+:root {
+  --ink: #1a1d21; --muted: #5b6470; --faint: #8a929c;
+  --line: #e3e6ea; --surface: #f6f7f9; --bg: #ffffff;
+  --accent: #1f5fbf; --accent-soft: #e8f0fb;
+  --pass: #1d7a46; --pass-soft: #e5f4ec;
+  --info: #8a5a00; --info-soft: #fbf1dc;
+  --todo: #6b7280; --todo-soft: #eef0f2;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface);
+  padding: 1px 5px; border-radius: 4px; }
+
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.site-header .inner { max-width: 1100px; margin: 0 auto; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+.brand { font-weight: 700; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+nav.pages { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+nav.pages a { color: var(--muted); text-decoration: none; font-weight: 500; padding: 2px 0; }
+nav.pages a:hover { color: var(--ink); }
+nav.pages a[aria-current] { color: var(--ink); border-bottom: 2px solid var(--accent); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+nav.sections { margin: 0 0 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92em; }
+nav.sections::before { content: "On this page:"; color: var(--faint); }
+nav.sections a { text-decoration: none; font-weight: 600; }
+
+h1 { font-size: 1.9em; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 12px; }
+h2 { font-size: 1.4em; line-height: 1.3; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.12em; margin: 28px 0 8px; }
+h4 { font-size: 1em; margin: 20px 0 6px; }
+section { scroll-margin-top: 72px; }
+h2, h3 { scroll-margin-top: 72px; }
+
+/* Hand-written (Markdown) content: readable measure, left-aligned tables. */
+.prose { max-width: 760px; }
+.prose p, .prose li { color: var(--ink); }
+.prose .lede { font-size: 1.12em; color: var(--muted); }
+.prose table { width: 100%; }
+.prose th, .prose td { text-align: left; }
+.prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose img { max-width: 100%; }
+@media (max-width: 640px) { .prose table { display: block; overflow-x: auto; } }
+/* position: relative so KaTeX's absolutely-positioned (visually hidden) MathML copy is clipped too. */
+.katex-display { position: relative; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
+/* Generated fragments (benchmark.py, build_correctness_report.py, ...). */
+table { border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; vertical-align: top; }
+th { background: var(--surface); font-weight: 600; }
+figure { display: inline-block; vertical-align: top; }
+img { max-width: 100%; height: auto; }
+.chart-note { max-width: 760px; color: var(--muted); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.js-plotly-plot, .plotly-graph-div { max-width: 100%; }
+
+/* Small shared components used from the Markdown pages. */
+.meta { color: var(--faint); font-size: 0.9em; margin: -4px 0 12px; }
+.badge { display: inline-block; font-size: 0.75em; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  vertical-align: middle; margin-left: 6px; white-space: nowrap; }
+.badge.done, .badge.pass { background: var(--pass-soft); color: var(--pass); }
+.badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
+.badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
+.badge.fail { background: #fdecec; color: #b42318; }
+.callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; max-width: none; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.stat .value { font-size: 1.7em; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--muted); font-size: 0.88em; margin-top: 6px; line-height: 1.4; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--ink); }
+.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.card strong { display: block; color: var(--accent); margin-bottom: 4px; }
+.card span { color: var(--muted); font-size: 0.92em; line-height: 1.45; display: block; }
+
+.progress-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 6px; }
+.progress-strip div { font-size: 0.78em; text-align: center; padding: 8px 4px; border-radius: 6px;
+  background: var(--todo-soft); color: var(--todo); line-height: 1.25; }
+.progress-strip .done { background: var(--pass-soft); color: var(--pass); }
+.progress-strip .current { background: var(--accent); color: #fff; font-weight: 600; }
+@media (max-width: 640px) { .progress-strip { grid-template-columns: repeat(4, 1fr); } }
+
+/* Validation page: chain of trust + per-stage check tables. */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 20px 0 8px; }
+.chain .link { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+.chain .link:hover { border-color: var(--accent); }
+.chain .link .n { color: var(--faint); font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.chain .link .name { font-weight: 700; margin: 2px 0; }
+.chain .link .sub { color: var(--muted); font-size: 0.88em; }
+.chain .arrow { align-self: center; color: var(--faint); font-size: 1.3em; }
+@media (max-width: 640px) { .chain .arrow { display: none; } }
+.checks { width: 100%; }
+.checks th, .checks td { text-align: left; }
+.checks td.result { font-variant-numeric: tabular-nums; }
+.table-scroll { overflow-x: auto; }
+
+.site-footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 0.88em; }
+.site-footer .inner { max-width: 1100px; margin: 0 auto; padding: 16px; }
+</style>
+</head>
+<body>
+<header class="site-header"><div class="inner">
+<a class="brand" href="index.html">AV Perception: nuScenes Pipeline</a>
+<nav class="pages"><a href="index.html">Home</a> <a href="learning.html">Learning</a> <a href="build.html" aria-current="page">Build log</a> <a href="validation.html">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
+</div></header>
+<main>
+<section id="build" class="prose">
+<h1 id="build-log">Build log</h1>
+<p class="lede">Each milestone in the order it was built: the goal, the approach, how I checked it, and what
+it taught me. Dates come from the commit history.</p>
+<h2 id="1-schema-exploration-and-camera-sync-done">1 · Schema exploration and camera sync <span class="badge done">Done</span></h2>
+<p class="meta">Sep 11 – Sep 13, 2026 · <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/nuscenes.ipynb">notebook</a></p>
+<p><strong>Goal.</strong> Understand what nuScenes actually contains, and how its tables relate, before
+deciding what to extract.</p>
+<p><strong>Approach.</strong> Worked through the devkit tutorial on <code>v1.0-mini</code> (scenes, samples,
+sample_data, calibrated sensors, ego pose, annotations, instances, categories), then added my
+own extraction on top: walk each scene's samples, pull every sensor's data with its
+calibration, and measure each camera's timestamp skew against the sample's keyframe.</p>
+<p><strong>How I checked it.</strong> Thresholded skew at 43.5 ms and plotted it three ways (a histogram, a
+per-sample scatter with the threshold line, and a per-camera box plot) to see whether
+misalignment was rare noise or one camera being systematically late.</p>
+<p><strong>What I learned.</strong> A nuScenes "sample" is a keyframe, not a moment where every sensor fired
+together: each camera's frame is the nearest one to the keyframe, so "synced" always means
+"synced within some tolerance", and that tolerance is a choice worth measuring before
+building on it.</p>
+<h2 id="2-ingestion-module-and-parquet-tables-done">2 · Ingestion module and Parquet tables <span class="badge done">Done</span></h2>
+<p class="meta">Sep 13 – Nov 1, 2026 · <a href="validation.html#ingestion">checks</a></p>
+<p><strong>Goal.</strong> Turn the notebook's extraction into a module that writes typed Parquet tables
+(samples, sensor data, annotations, projected 2D boxes).</p>
+<p><strong>Approach.</strong> Moved the logic out of the notebook, then replaced every literal table/field
+name with a shared key vocabulary (<code>nuscenes.py</code>, <code>ingestion_keys.py</code>) so ingestion, transform
+and table-building all read the same names. Row builders flatten each sample's aggregate record
+into rows validated against explicit <code>pyarrow</code> schemas.</p>
+<p><strong>How I checked it.</strong> Three scripts, each against something independent of the code under
+test: sample traversal against nuScenes' own table scan, every ingested field against the raw
+devkit record (64,192 values), and every table row against the
+schema plus a small re-indexer written separately from the row builders
+(136,616 values).</p>
+<p><strong>What broke.</strong> Running the checks found real bugs: a key renamed in one place but not its
+callers (it crashed <code>verify_ingestion_keys.py</code>), schema literals that weren't valid
+<code>pyarrow</code> schemas, annotation rows built from the wrong column map, and a call to a function
+that didn't exist. All were fixed in one pass, and the checks have passed since.</p>
+<p><strong>What I learned.</strong> The bugs that matter in data plumbing are wiring bugs: the right logic
+fed the wrong record. They look fine until something independent reads the same source.
+That's why the table check uses its own re-indexer rather than the code it's checking: reusing
+it would have hidden exactly these bugs.</p>
+<h2 id="3-ray-parallelized-ingestion-done">3 · Ray-parallelized ingestion <span class="badge done">Done</span></h2>
+<p class="meta">Oct 9 – Nov 1, 2026 · <a href="results.html#performance">benchmark</a></p>
+<p><strong>Goal.</strong> Find out whether parallelizing ingestion actually helps, and by how much.</p>
+<p><strong>Approach.</strong> A Ray driver (<code>partition.py</code>) that batches scenes, resolves each batch into a
+plain-dict manifest <em>in the driver</em> (<code>nusc.get()</code> is cheap list indexing, since
+<code>NuScenes.__init__</code> already loads every table eagerly), <code>ray.put()</code>s that manifest once per
+batch, and farms it out to two independent table-writing tasks per batch, with per-task
+timing (queue wait, compute, disk write). A benchmark harness reruns it at
+1/2/4/8 workers with repeated timed runs and records whole-machine
+CPU utilization.</p>
+<p><strong>Result.</strong> The best run was 1.53× faster than one worker, at
+4 workers; 8 workers was <em>slower</em>
+than 4. At 4 workers,
+58% of each run is fixed startup cost (interpreter,
+imports, <code>ray.init()</code>, loading the devkit's tables), which no number of workers can shrink.</p>
+<p><strong>What I learned.</strong></p>
+<ul>
+<li><em>On a dataset this small, parallelism is capped by its fixed costs before it is capped by
+  cores.</em> I also caught a misleading chart of my own: a numeric worker-count axis invented an
+  intermediate tick ("6") with no run behind it. Worker counts are sweep values, not a
+  continuous range, so the axis is now categorical.</li>
+<li><em>A Ray task is a separate process, not a thread.</em> Nothing in the driver (not even an
+  already-loaded <code>nusc</code>) is visible inside a task; only what's explicitly passed in exists on
+  the worker side. That one fact ruled out most of the designs I tried first: shipping <code>nusc</code>
+  itself to every worker, a global buffer a second task could read from, a single <code>nusc</code> shared
+  across per-sample tasks. The manifest pattern (resolve everything to a plain dict in the
+  driver, hand <em>that</em> to the tasks) exists because of it.</li>
+<li><em>Not every independent step deserves its own task.</em> I started with one task per output
+  table (three for the core tables, one for the projected bboxes), since each write is
+  genuinely independent of the others. Writing a table is cheap reshaping, though, so
+  splitting the three core writes further only paid scheduling and deserialization overhead
+  per task without adding real parallel compute. Consolidating them into one task, alongside
+  the bbox task, is why there are two tasks per batch, not four.</li>
+</ul>
+<h2 id="4-projection-global-ego-camera-pixel-done">4 · Projection: global → ego → camera → pixel <span class="badge done">Done</span></h2>
+<p class="meta">Sep 24 – Nov 1, 2026 · <a href="validation.html#projection">checks</a> · <a href="results.html#correctness">analysis</a></p>
+<p><strong>Goal.</strong> Project every annotated 3D box into each camera that sees it, and prove the
+projection is right.</p>
+<p><strong>Approach.</strong> An SE(3) chain built on <code>scipy</code>'s <code>RigidTransform</code>: box corners from global to
+ego to camera frame, an in-front-of-camera filter, the intrinsics and perspective divide, then
+clipping the projected hull to the image canvas.</p>
+<p><strong>How I checked it.</strong> nuScenes ships a script that does the same projection, but it only
+outputs final boxes, so I forked it to also output the corners after every intermediate
+stage, and diffed my pipeline against it stage by stage. A disagreement now points at the
+exact transform that caused it. Then the end result: 17,683 boxes,
+lowest IoU 0.9997, with 0 boxes missing and
+0 invented.</p>
+<p><strong>What I learned.</strong> "Matches the reference" is only as strong as the reference: this proves my
+code agrees with the devkit's implementation, not with an independent ground truth (nuScenes
+has no separately annotated 2D boxes). And where IoU dips at all, it's on tiny or edge-clipped
+boxes, where a sub-pixel difference is a large fraction of the box. That's why the
+minimum-area cutoff for the image gallery is a setting (<code>config.toml</code>), not a constant.</p>
+<h2 id="5-geometric-bev-fusion-done">5 · Geometric BEV fusion <span class="badge done">Done</span></h2>
+<p class="meta">Nov 4, 2026 · <a href="validation.html#bev">checks</a> · <a href="bev.html">interactive views</a></p>
+<p><strong>Goal.</strong> Fuse LiDAR and cameras into one top-down view: every LiDAR point, coloured by the
+camera that sees it, with annotated boxes overlaid.</p>
+<p><strong>Approach.</strong> Load each sample's LiDAR sweep into the ego frame; project the points into every
+camera with the already-validated projection chain and sample each point's colour
+(bilinear, via <code>cv2.remap</code>); bring the annotation boxes into the same frame; then render as a
+scatter, a multi-channel raster (colour, height, intensity), and 3D views.</p>
+<p><strong>How I checked it.</strong> Six checks, again each against something independent. The strongest
+is that the number of my LiDAR points inside each annotated box matches nuScenes' own
+<code>num_lidar_pts</code> for 205 / 205 boxes.
+The others check the ego-frame axes against how the car actually moved, the LiDAR file's
+columns against the devkit's loader, colour sampling against hand-computed interpolation, and
+the raster against a deliberately naive reimplementation.</p>
+<p><strong>What I learned.</strong></p>
+<ul>
+<li><em>Rendering libraries have opinions.</em> Plotly's image trace draws row 0 at the top, the
+  opposite of this project's forward-is-up convention. That would have silently flipped the
+  whole view front-to-back; I only trusted the fix after rendering both variants and looking.</li>
+<li><em>Averaging is a modelling decision.</em> Several LiDAR points can land in one raster cell at
+  different heights (a branch over a road), so each cell keeps the surface nearest the sensor
+  rather than blending unrelated ones. Exact ties <em>are</em> averaged: on real data they turned out
+  to be multiple returns from one spot, not different surfaces.</li>
+<li><em>Colour is a constraint, not decoration.</em> With up to ten categories on screen, no
+  colour-blind-safe palette held up past seven distinct colours, so the six most common
+  categories get their own colour and the rest share one.</li>
+</ul>
+<h2 id="6-full-dataset-ingestion-run-up-next">6 · Full-dataset ingestion run <span class="badge todo">Up next</span></h2>
+<p class="meta">Not yet started · <a href="results.html#performance">benchmark</a></p>
+<p><strong>Goal.</strong> Find out whether the parallelism measured on <code>v1.0-mini</code>
+(1.53× at 4 workers) holds on
+the full nuScenes dataset, or whether a dataset orders of magnitude larger surfaces a
+different bottleneck (disk I/O, worker memory, or scheduling overhead) that <code>v1.0-mini</code>
+was too small to expose.</p>
+<p><strong>Approach.</strong> Run the same Ray-parallelized ingestion pipeline (<code>partition.py</code>) against the
+full dataset on Runpod, repeating the worker-count sweep <code>benchmark.py</code> already runs for
+mini.</p>
+</section>
+</main>
+<footer class="site-footer"><div class="inner">
+Source: <a href="https://github.com/Atmika293/av-scene-graph-planning">github.com/Atmika293/av-scene-graph-planning</a> &middot;
+every number on this site is computed from the pipeline's own run output each time it's rebuilt.
+</div></footer>
+</body>
+</html>

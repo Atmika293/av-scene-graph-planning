@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning log · AV Perception</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "\\(", right: "\\)", display: false},
+            {left: "\\[", right: "\\]", display: true}
+        ]
+    });
+});
+</script>
+
+<style>
+:root {
+  --ink: #1a1d21; --muted: #5b6470; --faint: #8a929c;
+  --line: #e3e6ea; --surface: #f6f7f9; --bg: #ffffff;
+  --accent: #1f5fbf; --accent-soft: #e8f0fb;
+  --pass: #1d7a46; --pass-soft: #e5f4ec;
+  --info: #8a5a00; --info-soft: #fbf1dc;
+  --todo: #6b7280; --todo-soft: #eef0f2;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface);
+  padding: 1px 5px; border-radius: 4px; }
+
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.site-header .inner { max-width: 1100px; margin: 0 auto; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+.brand { font-weight: 700; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+nav.pages { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+nav.pages a { color: var(--muted); text-decoration: none; font-weight: 500; padding: 2px 0; }
+nav.pages a:hover { color: var(--ink); }
+nav.pages a[aria-current] { color: var(--ink); border-bottom: 2px solid var(--accent); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+nav.sections { margin: 0 0 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92em; }
+nav.sections::before { content: "On this page:"; color: var(--faint); }
+nav.sections a { text-decoration: none; font-weight: 600; }
+
+h1 { font-size: 1.9em; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 12px; }
+h2 { font-size: 1.4em; line-height: 1.3; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.12em; margin: 28px 0 8px; }
+h4 { font-size: 1em; margin: 20px 0 6px; }
+section { scroll-margin-top: 72px; }
+h2, h3 { scroll-margin-top: 72px; }
+
+/* Hand-written (Markdown) content: readable measure, left-aligned tables. */
+.prose { max-width: 760px; }
+.prose p, .prose li { color: var(--ink); }
+.prose .lede { font-size: 1.12em; color: var(--muted); }
+.prose table { width: 100%; }
+.prose th, .prose td { text-align: left; }
+.prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose img { max-width: 100%; }
+@media (max-width: 640px) { .prose table { display: block; overflow-x: auto; } }
+/* position: relative so KaTeX's absolutely-positioned (visually hidden) MathML copy is clipped too. */
+.katex-display { position: relative; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
+/* Generated fragments (benchmark.py, build_correctness_report.py, ...). */
+table { border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; vertical-align: top; }
+th { background: var(--surface); font-weight: 600; }
+figure { display: inline-block; vertical-align: top; }
+img { max-width: 100%; height: auto; }
+.chart-note { max-width: 760px; color: var(--muted); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.js-plotly-plot, .plotly-graph-div { max-width: 100%; }
+
+/* Small shared components used from the Markdown pages. */
+.meta { color: var(--faint); font-size: 0.9em; margin: -4px 0 12px; }
+.badge { display: inline-block; font-size: 0.75em; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  vertical-align: middle; margin-left: 6px; white-space: nowrap; }
+.badge.done, .badge.pass { background: var(--pass-soft); color: var(--pass); }
+.badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
+.badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
+.badge.fail { background: #fdecec; color: #b42318; }
+.callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; max-width: none; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.stat .value { font-size: 1.7em; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--muted); font-size: 0.88em; margin-top: 6px; line-height: 1.4; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--ink); }
+.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.card strong { display: block; color: var(--accent); margin-bottom: 4px; }
+.card span { color: var(--muted); font-size: 0.92em; line-height: 1.45; display: block; }
+
+.progress-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 6px; }
+.progress-strip div { font-size: 0.78em; text-align: center; padding: 8px 4px; border-radius: 6px;
+  background: var(--todo-soft); color: var(--todo); line-height: 1.25; }
+.progress-strip .done { background: var(--pass-soft); color: var(--pass); }
+.progress-strip .current { background: var(--accent); color: #fff; font-weight: 600; }
+@media (max-width: 640px) { .progress-strip { grid-template-columns: repeat(4, 1fr); } }
+
+/* Validation page: chain of trust + per-stage check tables. */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 20px 0 8px; }
+.chain .link { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+.chain .link:hover { border-color: var(--accent); }
+.chain .link .n { color: var(--faint); font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.chain .link .name { font-weight: 700; margin: 2px 0; }
+.chain .link .sub { color: var(--muted); font-size: 0.88em; }
+.chain .arrow { align-self: center; color: var(--faint); font-size: 1.3em; }
+@media (max-width: 640px) { .chain .arrow { display: none; } }
+.checks { width: 100%; }
+.checks th, .checks td { text-align: left; }
+.checks td.result { font-variant-numeric: tabular-nums; }
+.table-scroll { overflow-x: auto; }
+
+.site-footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 0.88em; }
+.site-footer .inner { max-width: 1100px; margin: 0 auto; padding: 16px; }
+</style>
+</head>
+<body>
+<header class="site-header"><div class="inner">
+<a class="brand" href="index.html">AV Perception: nuScenes Pipeline</a>
+<nav class="pages"><a href="index.html">Home</a> <a href="learning.html" aria-current="page">Learning</a> <a href="build.html">Build log</a> <a href="validation.html">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
+</div></header>
+<main>
+<section id="learning" class="prose">
+<h1 id="learning-log">Learning log</h1>
+<p class="lede">What I studied for each phase, the ideas I took from it, and where those ideas show up in
+the code. The <a href="build.html">build log</a> covers the same ground from the other direction:
+what I built, and what building it taught me.</p>
+<h2 id="phase-1-foundations-complete">Phase 1: Foundations <span class="badge done">Complete</span></h2>
+<p>Before writing any pipeline code: the geometry every later stage depends on: how a 3D
+point becomes a pixel, and how to represent and compose 3D poses.</p>
+<h3 id="studied">Studied</h3>
+<p><strong>Camera intrinsics/extrinsics and projective geometry</strong>: Cyrill Stachniss,
+<a href="https://www.youtube.com/playlist?list=PLgnQpQtFTOGRYjqjdZxTEQPZuFHQa7O7Y"><em>Photogrammetry I &amp; II</em></a>
+(University of Bonn)</p>
+<ul>
+<li><a href="https://www.youtube.com/watch?v=uHApDqH-8UE">Camera Parameters – Extrinsics and Intrinsics</a></li>
+<li><a href="https://www.youtube.com/watch?v=-9He7Nu3u8s">Camera Calibration using Zhang's Method</a></li>
+<li><a href="https://www.youtube.com/watch?v=3NcQbZu6xt8">Direct Linear Transform for Camera Calibration and Localization</a></li>
+<li><a href="https://www.youtube.com/watch?v=26nV4oDLiqc">Intrinsic Camera Calibration – 5 Minutes with Cyrill</a></li>
+</ul>
+<p><strong>SE(3) rigid-body transforms</strong>: Lynch &amp; Park, <em>Modern Robotics</em>,
+<a href="https://modernrobotics.northwestern.edu/chapters/chapter3/">Chapter 3</a> (Northwestern)</p>
+<p><strong>Hands-on:</strong> rotation and rigid-transform math in Python with
+<a href="https://docs.scipy.org/doc/scipy/reference/spatial.transform.html"><code>scipy.spatial.transform</code></a></p>
+<h3 id="key-ideas">Key ideas</h3>
+<ul>
+<li><strong>A camera is two transforms.</strong> The extrinsics are a rigid-body transform (rotation +
+  translation) taking a point into the camera's own frame; the intrinsics matrix (K) then
+  maps that camera-frame point onto the image plane. Only the second step involves the
+  perspective divide; the first is pure SE(3).</li>
+<li><strong>Projection only works in front of the camera.</strong> After the extrinsic transform, a point
+  with (z \le 0) is behind the image plane, and dividing by (z) gives a meaningless (or
+  mirrored) pixel. Those points have to be filtered out <em>before</em> the divide, not after.</li>
+<li><strong>Frame order is the whole game.</strong> nuScenes stores every pose as "this frame, expressed in
+  its parent": sensor in ego, ego in world. Going the other way (world → ego → camera, to
+  reproject an annotation) means applying the <em>inverse</em> of each, in reverse order. Getting one
+  inverse wrong still produces plausible-looking numbers.</li>
+<li><strong>Rotations have conventions that silently disagree.</strong> nuScenes writes quaternions
+  scalar-first ((w, x, y, z)); <code>scipy</code> defaults to scalar-last. Reading one as the other
+  doesn't crash; it just produces a different, wrong rotation.</li>
+</ul>
+<h3 id="where-it-shows-up">Where it shows up</h3>
+<ul>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/av_data_pipeline/transform.py"><code>transform.py</code></a>
+  chains global → ego → camera → pixel with <code>RigidTransform</code>, reads every nuScenes quaternion with
+  <code>scalar_first=True</code>, and drops points with (z \le 0) before multiplying by (K).</li>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_orientation.py"><code>check_orientation.py</code></a>
+  exists because of the last two points: it checks the rotation handling against how the car
+  actually moved, rather than trusting it.</li>
+</ul>
+<h3 id="what-took-longest-to-click">What took longest to click</h3>
+<p>Keeping track of which direction each stored transform points. Writing it out as
+"<em>A</em>-in-<em>B</em>" for every pose, and checking each stage of the chain separately against the
+devkit's own intermediate output, is what made it manageable.</p>
+<h2 id="phase-2-ingestion-fusion-in-progress">Phase 2: Ingestion + fusion <span class="badge progress">In progress</span></h2>
+<p>Phase 2 is mostly building (see the <a href="build.html">build log</a>); the learning here is the
+working references used along the way, plus a reading track on BEV <em>networks</em>, the learned
+counterpart to the geometric BEV built in this phase.</p>
+<h3 id="working-references">Working references</h3>
+<ul>
+<li><a href="https://github.com/nutonomy/nuscenes-devkit"><code>nuscenes-devkit</code> tutorial</a> and the
+  <a href="https://github.com/nutonomy/nuscenes-devkit/blob/master/docs/schema_nuscenes.md">nuScenes schema</a>
+  (worked through on <code>v1.0-mini</code> before deciding what to extract)</li>
+<li>Ray docs: <a href="https://docs.ray.io/en/latest/ray-core/tasks.html">Tasks</a>,
+  <a href="https://docs.ray.io/en/latest/ray-core/actors.html">Actors</a>,
+  <a href="https://docs.ray.io/en/latest/ray-core/objects.html">Objects</a>, the
+  <a href="https://docs.ray.io/en/latest/ray-core/patterns/index.html">design patterns and anti-patterns index</a>
+  (especially <a href="https://docs.ray.io/en/latest/ray-core/patterns/pass-large-arg-by-value.html">passing the same large argument by value</a>
+  and <a href="https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html">limiting pending tasks with <code>ray.wait</code></a>),
+  and <a href="https://docs.ray.io/en/latest/ray-core/examples/gentle_walkthrough.html">A Gentle Introduction to Ray Core by Example</a></li>
+</ul>
+<h3 id="key-ideas_1">Key ideas</h3>
+<ul>
+<li><strong>A Ray task runs in its own process, not a thread.</strong> Nothing in the driver, not even an
+  already-loaded <code>nusc</code>, is visible inside a task; only what's explicitly passed in (and
+  round-tripped through serialization) exists on the worker side. Most of my early design
+  mistakes (shipping a global reference, assuming one task could see what another had just
+  written) turned out to be this one fact showing up in different disguises.</li>
+<li>
+<p><strong>The object store's "zero-copy" guarantee is narrower than it sounds.</strong> <code>ray.put()</code> avoids
+  re-serializing the same argument for every task that uses it, but each worker still unpickles
+  its own full copy unless the data is numpy- or Arrow-backed. A large nested Python object
+  (a loaded <code>nusc</code>, say) gets copied per worker either way; <code>ray.put()</code> saves redundant
+  <em>serialization</em>, not redundant <em>memory</em>.</p>
+</li>
+<li>
+<p><strong>Granularity is a real tradeoff, not "more parallel is always better."</strong> Too fine (one task
+  per sample, with ~40 samples per scene) pays fixed per-task scheduling overhead for too
+  little work each; too coarse (a single-threaded driver doing all the extraction itself)
+  leaves the part that's actually worth parallelizing (the geometry and the writes) stuck
+  waiting behind it. Batching scenes landed in between.</p>
+</li>
+<li>
+<p><strong>Shared mutable state needs an actor, and an actor is a new bottleneck.</strong> Plain tasks are
+  stateless, so a second task can't see what a first task wrote into some shared buffer (that needs an actor). But then every producer serializes behind that one actor's inbox, which
+  just moves the bottleneck rather than removing it. Giving each task full ownership of its own
+  output (build and write its own rows, no coordination) sidesteps the problem instead.</p>
+</li>
+<li>
+<p><strong>Aggregating a cell means deciding what "one value" should mean, first.</strong> When several
+  lidar points land in the same raster cell, they could be repeated measurements of the same
+  physical spot (a multi-return artifact; average them, since that reduces measurement
+  noise) or they could be different surfaces that happen to project into the same cell (e.g. a
+  tree branch over a road. Averaging blends two unrelated realities into a number that
+  describes neither). The fix wasn't picking a better tie-break rule; it was checking, from
+  the actual returns, which of those two situations was really happening before deciding
+  whether to average at all.</p>
+</li>
+<li><strong>A color scale is a choice, not a given.</strong> Mapping a skewed, long-tailed value (lidar
+  intensity here) onto a fixed range by its literal min/max lets a handful of rare outliers
+  dictate the whole scale, compressing the typical values (the ones that actually carry the
+  scene's structure) into a narrow, almost-indistinguishable band. Clipping at a percentile
+  instead (letting the rare extremes simply saturate) trades fine detail among the outliers
+  for real contrast across the data that matters. Remote-sensing imagery calls this a
+  "percentile stretch."</li>
+</ul>
+<h3 id="where-it-shows-up_1">Where it shows up</h3>
+<ul>
+<li><code>partition.py</code>'s manifest pattern: each batch's scenes are resolved into a plain-dict
+  manifest (pure list indexing, since <code>NuScenes.__init__</code> already loads every table eagerly)
+  <em>in the driver</em>, and only that resolved manifest (never <code>nusc</code> itself) crosses into the
+  two Ray tasks it's handed to.</li>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/raster.py"><code>bev/raster.py</code></a>'s
+  <code>build_raster</code> averages a cell's nearest-to-ego points only when they're tied at the
+  <em>exact</em> same distance (a real multi-return case, confirmed against actual data), not
+  whenever multiple points simply happen to share a cell.</li>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/report/build_bev_report.py"><code>build_bev_report.py</code></a>'s
+  <code>raster_intensity_traces</code>/<code>scatter_3d_intensity_traces</code> clip the color scale at the 95th
+  percentile of each sample's actual intensity values, rather than the sensor's theoretical
+  0–255 range.</li>
+</ul>
+<h3 id="reading-bev-networks">Reading: BEV networks</h3>
+<p>The BEV built in this phase is <em>geometric</em>: LiDAR already says where every point is in 3D,
+so making a top-down view is a matter of projecting points and colouring them from the
+cameras. BEV <em>networks</em> solve the hard version: building a top-down representation from
+cameras alone, where depth has to be learned rather than measured. This is the dominant
+approach in current AV perception, so it's worth knowing where my geometric version sits
+relative to it.</p>
+<table>
+<thead>
+<tr>
+<th>Paper</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Lift-Splat-Shoot</strong>, Philion &amp; Fidler, <a href="https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123590188.pdf">ECCV 2020</a></td>
+<td><span class="badge progress">Reading</span></td>
+</tr>
+<tr>
+<td><strong>BEVFormer</strong>, Li et al., ECCV 2022</td>
+<td><span class="badge todo">Up next</span></td>
+</tr>
+<tr>
+<td><strong>BEVFusion</strong>, Liang et al., NeurIPS 2022</td>
+<td><span class="badge todo">Up next</span></td>
+</tr>
+<tr>
+<td><strong>Survey: Delving into the Devils of Bird's-eye-view Perception</strong>, T-PAMI 2023, <a href="https://arxiv.org/abs/2209.05324">arXiv 2209.05324</a></td>
+<td><span class="badge todo">Up next</span></td>
+</tr>
+</tbody>
+</table>
+<h4 id="notes-so-far-lift-splat-shoot">Notes so far: Lift-Splat-Shoot</h4>
+<ul>
+<li><strong>Lift:</strong> each pixel is lifted into a frustum of points along its ray (one per discrete
+  depth bin), weighted by a predicted depth distribution. Where my pipeline gets depth exactly
+  from LiDAR, LSS has to <em>predict</em> it, and hedges across depths when unsure.</li>
+<li><strong>Splat:</strong> the lifted features from all six cameras are sum-pooled into a shared BEV grid
+  of pillars: the learned counterpart of my raster's binning step.</li>
+<li><strong>Shoot:</strong> planning by scoring a set of template trajectories against the BEV cost map.
+  Relevant later, in Phase 3's trajectory evaluation.</li>
+</ul>
+</section>
+</main>
+<footer class="site-footer"><div class="inner">
+Source: <a href="https://github.com/Atmika293/av-scene-graph-planning">github.com/Atmika293/av-scene-graph-planning</a> &middot;
+every number on this site is computed from the pipeline's own run output each time it's rebuilt.
+</div></footer>
+</body>
+</html>

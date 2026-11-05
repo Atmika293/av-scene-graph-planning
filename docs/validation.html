@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validation · AV Perception</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "\\(", right: "\\)", display: false},
+            {left: "\\[", right: "\\]", display: true}
+        ]
+    });
+});
+</script>
+
+<style>
+:root {
+  --ink: #1a1d21; --muted: #5b6470; --faint: #8a929c;
+  --line: #e3e6ea; --surface: #f6f7f9; --bg: #ffffff;
+  --accent: #1f5fbf; --accent-soft: #e8f0fb;
+  --pass: #1d7a46; --pass-soft: #e5f4ec;
+  --info: #8a5a00; --info-soft: #fbf1dc;
+  --todo: #6b7280; --todo-soft: #eef0f2;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface);
+  padding: 1px 5px; border-radius: 4px; }
+
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.site-header .inner { max-width: 1100px; margin: 0 auto; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+.brand { font-weight: 700; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+nav.pages { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+nav.pages a { color: var(--muted); text-decoration: none; font-weight: 500; padding: 2px 0; }
+nav.pages a:hover { color: var(--ink); }
+nav.pages a[aria-current] { color: var(--ink); border-bottom: 2px solid var(--accent); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+nav.sections { margin: 0 0 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92em; }
+nav.sections::before { content: "On this page:"; color: var(--faint); }
+nav.sections a { text-decoration: none; font-weight: 600; }
+
+h1 { font-size: 1.9em; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 12px; }
+h2 { font-size: 1.4em; line-height: 1.3; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.12em; margin: 28px 0 8px; }
+h4 { font-size: 1em; margin: 20px 0 6px; }
+section { scroll-margin-top: 72px; }
+h2, h3 { scroll-margin-top: 72px; }
+
+/* Hand-written (Markdown) content: readable measure, left-aligned tables. */
+.prose { max-width: 760px; }
+.prose p, .prose li { color: var(--ink); }
+.prose .lede { font-size: 1.12em; color: var(--muted); }
+.prose table { width: 100%; }
+.prose th, .prose td { text-align: left; }
+.prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose img { max-width: 100%; }
+@media (max-width: 640px) { .prose table { display: block; overflow-x: auto; } }
+/* position: relative so KaTeX's absolutely-positioned (visually hidden) MathML copy is clipped too. */
+.katex-display { position: relative; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
+/* Generated fragments (benchmark.py, build_correctness_report.py, ...). */
+table { border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; vertical-align: top; }
+th { background: var(--surface); font-weight: 600; }
+figure { display: inline-block; vertical-align: top; }
+img { max-width: 100%; height: auto; }
+.chart-note { max-width: 760px; color: var(--muted); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.js-plotly-plot, .plotly-graph-div { max-width: 100%; }
+
+/* Small shared components used from the Markdown pages. */
+.meta { color: var(--faint); font-size: 0.9em; margin: -4px 0 12px; }
+.badge { display: inline-block; font-size: 0.75em; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  vertical-align: middle; margin-left: 6px; white-space: nowrap; }
+.badge.done, .badge.pass { background: var(--pass-soft); color: var(--pass); }
+.badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
+.badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
+.badge.fail { background: #fdecec; color: #b42318; }
+.callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; max-width: none; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.stat .value { font-size: 1.7em; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--muted); font-size: 0.88em; margin-top: 6px; line-height: 1.4; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--ink); }
+.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.card strong { display: block; color: var(--accent); margin-bottom: 4px; }
+.card span { color: var(--muted); font-size: 0.92em; line-height: 1.45; display: block; }
+
+.progress-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 6px; }
+.progress-strip div { font-size: 0.78em; text-align: center; padding: 8px 4px; border-radius: 6px;
+  background: var(--todo-soft); color: var(--todo); line-height: 1.25; }
+.progress-strip .done { background: var(--pass-soft); color: var(--pass); }
+.progress-strip .current { background: var(--accent); color: #fff; font-weight: 600; }
+@media (max-width: 640px) { .progress-strip { grid-template-columns: repeat(4, 1fr); } }
+
+/* Validation page: chain of trust + per-stage check tables. */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 20px 0 8px; }
+.chain .link { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+.chain .link:hover { border-color: var(--accent); }
+.chain .link .n { color: var(--faint); font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.chain .link .name { font-weight: 700; margin: 2px 0; }
+.chain .link .sub { color: var(--muted); font-size: 0.88em; }
+.chain .arrow { align-self: center; color: var(--faint); font-size: 1.3em; }
+@media (max-width: 640px) { .chain .arrow { display: none; } }
+.checks { width: 100%; }
+.checks th, .checks td { text-align: left; }
+.checks td.result { font-variant-numeric: tabular-nums; }
+.table-scroll { overflow-x: auto; }
+
+.site-footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 0.88em; }
+.site-footer .inner { max-width: 1100px; margin: 0 auto; padding: 16px; }
+</style>
+</head>
+<body>
+<header class="site-header"><div class="inner">
+<a class="brand" href="index.html">AV Perception: nuScenes Pipeline</a>
+<nav class="pages"><a href="index.html">Home</a> <a href="learning.html">Learning</a> <a href="build.html">Build log</a> <a href="validation.html" aria-current="page">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
+</div></header>
+<main>
+<nav class="sections"><a href="#validation-intro">Approach</a> <a href="#checks">Checks</a> <a href="#validation-notes">Design notes</a></nav>
+<section id="validation-intro" class="prose">
+<h1 id="validation">Validation</h1>
+<p class="lede">Every stage of the pipeline is checked against a reference that's independent of the code
+under test, before the next stage is allowed to build on it. A bug then surfaces at the stage
+that introduced it, rather than as a vague wrongness at the end of the pipeline.</p>
+<p>The table below is regenerated from each check's own latest output every time this site is
+rebuilt; none of its numbers are typed by hand. Each row links to the script that produced it.</p>
+<div class="callout">
+<p><strong>What "independent" means here.</strong> A check that reuses the code it's checking can only
+confirm the code agrees with itself. So each check compares against something else: the
+devkit's own loaders and tables, a reference implementation written separately, nuScenes'
+annotations, or a physical fact (a car drives forward, not sideways).</p>
+</div>
+</section>
+<section id="checks">
+<div class="chain"><a class="link" href="#ingestion"><div class="n">Stage 1</div><div class="name">Ingestion</div><div class="sub">nuScenes tables &rarr; synced per-sample records &rarr; Parquet rows</div><div class="sub"><strong>3 / 3</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#projection"><div class="n">Stage 2</div><div class="name">Projection</div><div class="sub">3D boxes &rarr; global &rarr; ego &rarr; camera &rarr; pixel</div><div class="sub"><strong>2 / 2</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#bev"><div class="n">Stage 3</div><div class="name">BEV fusion</div><div class="sub">LiDAR points + camera colour &rarr; top-down raster</div><div class="sub"><strong>5 / 5</strong> checks pass &middot; 1 diagnostic</div></a></div>
+<h2 id="ingestion">Ingestion</h2>
+<p class="chart-note">nuScenes tables &rarr; synced per-sample records &rarr; Parquet rows</p>
+<div class="table-scroll"><table class="checks">
+<tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
+<tr><td><strong>Scene &rarr; sample traversal</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/verify_sample_tokens.py"><code>verify_sample_tokens.py</code></a></td><td>nuScenes' own <code>field2token</code> table scan</td><td>Samples skipped or duplicated by walking each scene's linked list</td><td class="result"><span class="badge pass">Pass</span><br>10 / 10 scenes</td></tr>
+<tr><td><strong>Ingestion field mapping</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/verify_ingestion_keys.py"><code>verify_ingestion_keys.py</code></a></td><td>Raw devkit records, re-fetched independently and compared field by field</td><td>Reading the wrong record or the wrong field (wiring bugs)</td><td class="result"><span class="badge pass">Pass</span><br>64,192 / 64,192 values across 30 fields</td></tr>
+<tr><td><strong>Table row construction</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/verify_table_rows.py"><code>verify_table_rows.py</code></a></td><td>Target schema's column names + an independent re-indexer (not the code under test)</td><td>Columns drifting from the schema; a row built by the wrong builder</td><td class="result"><span class="badge pass">Pass</span><br>136,616 / 136,616 columns + values + smoke tests</td></tr>
+</table></div>
+<h2 id="projection">Projection</h2>
+<p class="chart-note">3D boxes &rarr; global &rarr; ego &rarr; camera &rarr; pixel</p>
+<div class="table-scroll"><table class="checks">
+<tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
+<tr><td><strong>Per-stage transform</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/evaluate_projections.py"><code>evaluate_projections.py</code></a></td><td>Intermediate corners from a fork of the devkit's 2D exporter (<code>export_2d_annotations_debug.py</code>)</td><td>Frame-order, sign, or intrinsics errors, localised to the stage that introduced them</td><td class="result"><span class="badge pass">Pass</span><br>44,414 / 44,414 corner sets match at every stage</td></tr>
+<tr><td><strong>Final 2D boxes</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/evaluate_projections.py"><code>evaluate_projections.py</code></a></td><td>nuScenes' <code>image_annotations.json</code></td><td>Clipping and in-front-of-camera errors; boxes missing or invented</td><td class="result"><span class="badge pass">Pass</span><br>min IoU 0.9997 over 17,683 boxes; 0 missing, 0 extra</td></tr>
+</table></div>
+<h2 id="bev">BEV fusion</h2>
+<p class="chart-note">LiDAR points + camera colour &rarr; top-down raster</p>
+<div class="table-scroll"><table class="checks">
+<tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
+<tr><td><strong>Ego-frame orientation</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_orientation.py"><code>check_orientation.py</code></a></td><td>The vehicle's real motion between consecutive samples (it drives forward, not sideways)</td><td>A swapped or flipped axis in the ego-pose rotation handling</td><td class="result"><span class="badge pass">Pass</span><br>mean cos(heading) 0.9995 over 295 sample pairs, 0 backward; 1 parked scene skipped</td></tr>
+<tr><td><strong>LiDAR file columns</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_intensity.py"><code>check_intensity.py</code></a></td><td>The devkit's own loader, <code>LidarPointCloud.from_file</code></td><td>Off-by-one column slicing (reading ring index as intensity)</td><td class="result"><span class="badge pass">Pass</span><br>15 / 15 points</td></tr>
+<tr><td><strong>Points inside each box</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_box_containment.py"><code>check_box_containment.py</code></a></td><td>nuScenes' annotated <code>num_lidar_pts</code> for every box</td><td>LiDAR points and boxes misaligned between frames</td><td class="result"><span class="badge pass">Pass</span><br>205 / 205 boxes</td></tr>
+<tr><td><strong>Box separation</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_box_containment.py"><code>check_box_containment.py</code></a></td><td>None: a nearest-neighbour gap ratio used to flag outliers</td><td>Boxes sitting off their object (flagged for inspection, not failed)</td><td class="result"><span class="badge diagnostic">Diagnostic</span><br>median gap ratio 3.26 over 100 boxes (lowest 0.71)</td></tr>
+<tr><td><strong>Camera colour sampling</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_remap.py"><code>check_remap.py</code></a></td><td>Bilinear interpolation computed by hand from the 4 neighbouring pixels</td><td>Pixel-centre convention mismatch; transposed image indexing</td><td class="result"><span class="badge pass">Pass</span><br>max difference 0.51 (threshold 1.0)</td></tr>
+<tr><td><strong>Raster channels</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_raster.py"><code>check_raster.py</code></a></td><td>A naive per-point loop implementation + sentinel/mask consistency rules</td><td>Empty-cell sentinels leaking into real cells; mask mismatches</td><td class="result"><span class="badge pass">Pass</span><br>3 / 3 samples pass; matches naive implementation on 1 / 1 compared</td></tr>
+</table></div>
+</section>
+<section id="validation-notes" class="prose">
+<h2 id="design-notes">Design notes</h2>
+<p><strong>Separate checks for separate failure modes.</strong> The table-row check runs its column-set
+comparison and its value comparison independently, so a row with the wrong <em>shape</em> can't hide
+a row with the wrong <em>values</em>, or the other way round.</p>
+<p><strong>Localise, don't just detect.</strong> The projection check doesn't only compare final 2D boxes;
+it compares corners after every transform stage against a fork of nuScenes' own exporter. An
+end-to-end mismatch says <em>something</em> is wrong; a stage-by-stage diff says <em>which transform</em>.</p>
+<p><strong>A physical fact can be a reference.</strong> The orientation check doesn't assume the ego frame's
+"+x is forward" convention to test it: it uses the fact that a car moves mostly forward between
+two samples half a second apart. A swapped or flipped axis would show up as sideways or
+backward motion. Scenes where the car never moves are skipped, since there's no heading to
+measure.</p>
+<p><strong>The strongest check uses someone else's numbers.</strong> nuScenes records how many LiDAR points
+fall inside each annotated box. Recomputing that count from my own ego-frame points and boxes
+(using the same point-in-box algorithm nuScenes used) and matching it exactly means the LiDAR
+loading, both pose transforms and the box geometry all agree with the dataset's own.</p>
+<p><strong>Not everything gets a pass/fail.</strong> The box-separation ratio has no ground truth: a low value
+can mean a misaligned box, or two real objects parked bumper-to-bumper. It's reported as a
+diagnostic, and its lowest cases (mostly barriers and pedestrians, which do stand close
+together) are flagged for inspection rather than failed.</p>
+<h2 id="limits">Limits</h2>
+<ul>
+<li><strong>Projection is checked against the devkit's implementation, not an independent ground
+  truth.</strong> nuScenes has no separately annotated 2D boxes, so agreeing with the devkit is the
+  strongest claim available.</li>
+<li><strong>Boxes with no LiDAR points are excluded</strong> from the projection comparison
+  (4,278 annotations): the pipeline only builds annotations
+  with at least one LiDAR point, so those never enter the comparison.</li>
+<li><strong>Visual views have no score.</strong> The BEV renders are checked through the data that feeds them
+  (every row above); the rendering itself was checked by eye, which is how the image-axis flip
+  described in the <a href="build.html">build log</a> was caught.</li>
+</ul>
+</section>
+</main>
+<footer class="site-footer"><div class="inner">
+Source: <a href="https://github.com/Atmika293/av-scene-graph-planning">github.com/Atmika293/av-scene-graph-planning</a> &middot;
+every number on this site is computed from the pipeline's own run output each time it's rebuilt.
+</div></footer>
+</body>
+</html>
