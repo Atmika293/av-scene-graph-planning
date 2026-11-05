@@ -40,7 +40,7 @@ from av_data_pipeline.config import (
     BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS,
     BENCHMARK_CPU_SAMPLE_INTERVAL, BENCHMARK_REPORT_DIR,
 )
-from av_data_pipeline.report_html import KATEX_CDN_HTML
+from report.html import KATEX_CDN_HTML
 
 RESULTS_PATH = "reports/benchmark_results.jsonl"
 PARTITION_TIMING_PATH = "reports/partition_timing.json"
@@ -255,7 +255,7 @@ def build_breakdown_observations_html(by_worker_count: dict[int, dict]) -> str:
         f"<div class=\"chart-note\">Startup overhead stays within roughly "
         f"\\([{lo:.1f}, {hi:.1f}]\\) seconds across every worker count tested here. "
         "That's expected: it's the cost of interpreter startup, imports, "
-        "ray.init(), and loading the NuScenes devkit's tables -- all of it "
+        "ray.init(), and loading the NuScenes devkit's tables. All of it "
         "happens once per subprocess, before any task is submitted, so adding "
         "more workers has nothing to parallelize away.</div>"
     )
@@ -313,7 +313,7 @@ def build_speedup_observations_html(by_worker_count: dict[int, dict]) -> str:
                     "scheduling; that contention shows up as a higher average compute time per task "
                     f"({by_worker_count[best_wc]['mean_compute']:.3f}s at {best_wc} workers vs. "
                     f"{by_worker_count[worst_wc]['mean_compute']:.3f}s at {worst_wc}), which outweighs the "
-                    "reduced queueing and flattens -- here, slightly reverses -- the speedup curve.")
+                    "reduced queueing and flattens (here, slightly reverses) the speedup curve.")
         else:
             text += (" Compute time per task also rose there "
                     f"({by_worker_count[best_wc]['mean_compute']:.3f}s at {best_wc} workers vs. "
@@ -358,11 +358,11 @@ def build_cpu_observations_html(by_worker_count: dict[int, dict]) -> str:
         text += (f"This machine has {cpu_count} logical cores, so 100% here means every core is fully busy "
                 f"at once: at {lo_wc} worker(s), utilization stays low because most cores sit idle while "
                 f"only {lo_wc} task(s) run at a time; by {hi_wc} workers, utilization is sustained much "
-                "higher and repeatedly approaches that ceiling -- the same saturation that shows up as "
+                "higher and repeatedly approaches that ceiling. That's the same saturation that shows up as "
                 "increased per-task compute time in the Speedup chart's observations above.")
     else:
-        text += ("Rising utilization with worker count is expected -- more workers means more cores doing "
-                "work simultaneously -- up to the point where it saturates the machine's available cores.")
+        text += ("Rising utilization with worker count is expected: more workers means more cores doing "
+                "work simultaneously, up to the point where it saturates the machine's available cores.")
 
     return f"<h4>Observations</h4><div class=\"chart-note\">{text}</div>"
 
@@ -410,7 +410,7 @@ def build_wait_observations_html(by_worker_count: dict[int, dict]) -> str:
         f"{statistics.mean(hi_waits):.2f}s at {hi_wc}, and its spread (stdev) narrows from "
         f"{statistics.pstdev(lo_waits):.2f}s to {statistics.pstdev(hi_waits):.2f}s over the same range. "
         f"With only {lo_wc} worker(s), a task that isn't running yet has to queue behind whichever "
-        "tasks got there first, so its wait depends heavily on its position in that queue -- which "
+        "tasks got there first, so its wait depends heavily on its position in that queue, which "
         "varies widely from task to task. With more workers, a newly-submitted task is far more likely "
         "to find one immediately free, so both its average wait and the variability of that wait shrink "
         "together.</div>"
@@ -455,21 +455,21 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
         ("Per-task time breakdown",
          build_breakdown_chart(by_worker_count),
          "Average time a single task spends in each phase, by worker count. Bars are "
-         "grouped, not stacked -- these phases overlap once more than one worker runs, "
+         "grouped, not stacked: these phases overlap once more than one worker runs, "
          "so this chart shows composition, not total duration (see Speedup for that). "
          "Log scale because the phases span orders of magnitude."
          "<ul style=\"margin:4px 0 8px 20px; padding:0;\">"
          "<li><strong>Startup overhead</strong>: time from subprocess launch to the "
-         "first Ray task actually starting -- interpreter startup, imports, "
+         "first Ray task actually starting: interpreter startup, imports, "
          "ray.init(), and loading the NuScenes devkit's tables. Paid once per "
          "subprocess, before any task runs, so it doesn't shrink as worker count "
          "grows.</li>"
          "<li><strong>Wait (avg/task)</strong>: how long a task sits queued before a "
-         "worker is free to run it. Expected to shrink as worker count grows -- more "
+         "worker is free to run it. Expected to shrink as worker count grows, since more "
          "workers means less queueing.</li>"
          "<li><strong>Compute (avg/task)</strong>: time actually spent building and "
          "projecting a batch's rows. Each task does the same fixed work regardless of "
-         "concurrency, so this should stay roughly flat -- unless worker count starts "
+         "concurrency, so this should stay roughly flat, unless worker count starts "
          "exceeding the machine's available cores.</li>"
          "<li><strong>Disk write (avg/task)</strong>: time spent inside "
          "pq.write_table. Consistently the smallest component here; not CPU-bound, so "
@@ -497,7 +497,7 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
          build_time_distribution_chart(by_worker_count),
          "Full distribution (not just the mean) of each task's wait/compute/write "
          "time, grouped by worker count. Box plots surface spread and outliers an "
-         "average alone would hide -- e.g. wait time's spread narrowing as worker "
+         "average alone would hide. For example, wait time's spread narrowing as worker "
          "count grows is a stronger signal of reduced queueing than the mean alone.",
          build_wait_observations_html(by_worker_count)),
     ]
