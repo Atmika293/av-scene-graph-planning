@@ -15,15 +15,16 @@ spectrum, best and worst side by side.
 
 For each selected record, loads the camera image via the nuScenes devkit
 and draws both boxes directly on it -- our computed box and the reference
-box, in distinguishable colors -- then saves it as a PNG under
-docs/correctness_images/.
+box, in distinguishable colors -- then saves it as a WebP under
+docs/correctness_images/ (lossy, WEBP_QUALITY; these are published on the
+site, and the PNGs were ~1.5-2.5MB each).
 
 Also writes reports/selected_projections.json: the selected records (plus
 each one's saved image path and which group -- "best"/"worst" -- it came
 from), so build_correctness_report.py (Phase 5) can build captions without
 redoing this selection.
 
-Run with: python scripts/visualize_projections.py (from the repo root,
+Run with: python scripts/viz/visualize_projections.py (from the repo root,
 after evaluate_projections.py has produced its data file).
 """
 
@@ -38,6 +39,7 @@ DATA_FILE = "reports/evaluate_projections_data.jsonl"
 SELECTED_FILE = "reports/selected_projections.json"
 IMAGE_DIR = "docs/correctness_images"
 NUM_IMAGES_PER_GROUP = 5
+WEBP_QUALITY = 85
 
 # IOU is extremely sensitive to tiny absolute coordinate differences once a
 # box's area is near zero (a sub-pixel float32-vs-float64 rounding gap can
@@ -207,8 +209,9 @@ if __name__ == "__main__":
 
         annotated = draw_boxes_on_image(image, r["bbox"], r["ref_bbox"])
 
-        full_filename = f"{r['group']}_{r['annotation_token']}_{r['data_token']}.png"
-        cv2.imwrite(os.path.join(IMAGE_DIR, full_filename), annotated)
+        full_filename = f"{r['group']}_{r['annotation_token']}_{r['data_token']}.webp"
+        cv2.imwrite(os.path.join(IMAGE_DIR, full_filename), annotated,
+                    [cv2.IMWRITE_WEBP_QUALITY, WEBP_QUALITY])
         r["image"] = os.path.join(IMAGE_DIR, full_filename)
 
     with open(SELECTED_FILE, "w") as outfile:

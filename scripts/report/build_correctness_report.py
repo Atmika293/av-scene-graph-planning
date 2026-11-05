@@ -19,9 +19,9 @@ performance section into one docs/index.html):
     out as a two-column captioned image gallery.
 
 Math notation in the chart-note explanations (the IOU and bbox-area
-formulas) is rendered via KaTeX -- see av_data_pipeline.report_html.
+formulas) is rendered via KaTeX -- see report.html.
 
-Run with: python scripts/build_correctness_report.py (from the repo root,
+Run with: python scripts/report/build_correctness_report.py (from the repo root,
 after both evaluate_projections.py and visualize_projections.py have run).
 """
 
@@ -32,7 +32,7 @@ import statistics
 
 import plotly.graph_objects as go
 
-from av_data_pipeline.report_html import KATEX_CDN_HTML
+from report.html import KATEX_CDN_HTML
 
 DATA_FILE = "reports/evaluate_projections_data.jsonl"
 SELECTED_FILE = "reports/selected_projections.json"
@@ -326,8 +326,11 @@ def build_gallery_html(selected: list[dict]) -> str:
     worst_cards = "\n".join(_build_gallery_card_html(r) for r in worst)
     best_cards = "\n".join(_build_gallery_card_html(r) for r in best)
 
+    # Two columns side by side when there's room, stacked on a narrow screen;
+    # minmax(0, ...) lets a column shrink below its images' natural width
+    # (a bare 1fr won't, which pushed the page wider than a phone screen).
     return (
-        "<div style=\"display:grid; grid-template-columns: 1fr 1fr; gap:24px;\">\n"
+        "<div style=\"display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap:24px;\">\n"
         f"<div><h4>Worst 5 (lowest IOU)</h4>{worst_cards}</div>\n"
         f"<div><h4>Best 5 (highest IOU)</h4>{best_cards}</div>\n"
         "</div>"
@@ -354,7 +357,7 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
          "pair; x-axis is our computed bbox's area in pixels (log scale, since areas "
          "span single-digit slivers to frame-filling boxes). On this dataset every "
          "point already sits within \\([0.9997, 1.0000]\\) of IOU regardless of area "
-         "-- see the zoomed chart below for the real spread -- but low-area points "
+         "(see the zoomed chart below for the real spread), but low-area points "
          "still correlate with the lower end of that narrow band: IOU is more "
          "sensitive to a fixed absolute coordinate difference once a box's area is "
          "small, so low-area points are partly a measurement-sensitivity artifact, "
@@ -366,9 +369,9 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
          f"Same data as the chart above, but grouped into {AREA_BIN_COUNT} log-spaced "
          f"bbox-area bins and zoomed to the data's actual IOU range "
          f"(\\([{zoom_lo:.6f}, {zoom_hi:.6f}]\\), not a guessed window). A zoomed "
-         "*scatter* of this data would just be a dense horizontal smear -- every "
+         "*scatter* of this data would just be a dense horizontal smear: every "
          "pair's IOU differs from every other's by at most a few thousandths, and "
-         "there are ~17.7k of them -- so binning is what makes the small-vs-large "
+         "there are ~17.7k of them. Binning is what makes the small-vs-large "
          "pattern legible: a visibly lower median or wider spread in the small-area "
          "bins (left) than the large-area ones (right) is the area-sensitivity effect "
          "described above; a flat median across bins would mean area isn't actually "
@@ -386,8 +389,8 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
          "IOU distribution per camera channel. Six cameras share the same "
          "intrinsics/extrinsics pipeline code, so a channel with a systematically "
          "lower median or wider spread than the others would point at a "
-         "channel-specific issue -- e.g. a calibration or distortion-handling bug "
-         "specific to that camera -- rather than something wrong with the shared "
+         "channel-specific issue (e.g. a calibration or distortion-handling bug "
+         "specific to that camera) rather than something wrong with the shared "
          "projection logic itself."),
     ]
     chart_html = "\n".join(
@@ -416,7 +419,7 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
         f"{chart_html}\n"
         "<h3>Sample localizations</h3>\n"
         "<p class=\"chart-note\">10 annotation/camera pairs rendered with both boxes "
-        "drawn (red: ours, green: reference) -- the 5 lowest-IOU and 5 highest-IOU "
+        "drawn (red: ours, green: reference): the 5 lowest-IOU and 5 highest-IOU "
         "pairs among eligible (non-degenerate) boxes, each deduplicated by physical "
         "object and spread across categories. See the stat grid and charts above for "
         "the quantitative picture; these are a qualitative, representative sample of "
