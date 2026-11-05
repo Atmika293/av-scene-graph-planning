@@ -33,3 +33,6 @@ ipykernel
 # ray: parallel/distributed batch processing for the ingestion pipeline.
 pyarrow
 ray
+
+# markdown: renders the published site's hand-written pages (src/report/content/*.md).
+markdown
