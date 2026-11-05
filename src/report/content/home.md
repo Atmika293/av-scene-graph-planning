@@ -11,6 +11,8 @@ reference before the next one builds on it. The learning and build logs document
 decisions and mistakes along the way.
 {: .lede }
 
+[View the code on GitHub →](https://github.com/Atmika293/av-scene-graph-planning)
+
 <div class="skill-pills">
 <span class="pill">Ray</span>
 <span class="pill">PyArrow</span>
@@ -34,9 +36,8 @@ validated, with the interactive views published. **Reading:** Lift-Splat-Shoot, 
 of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 
 <div class="stats">
-<div class="stat"><div class="value">{{stat:box_containment.verified}} / {{stat:box_containment.total}}</div><div class="label">boxes whose LiDAR point count matches nuScenes' own <code>num_lidar_pts</code></div></div>
-<div class="stat"><div class="value">{{stat:ingestion_keys.verified|,}}</div><div class="label">ingested values cross-checked field-by-field against the devkit, 0 mismatches</div></div>
-<div class="stat"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></div>
+<a class="stat" href="results.html#performance"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></a>
+<a class="stat" href="bev.html"><img class="thumb" src="bev_thumbnail.png" alt="Top-down view of LiDAR points coloured by camera, with annotated boxes"><div class="label">LiDAR + camera fusion in bird's-eye view: explore the interactive views</div></a>
 </div>
 
 ## Explore

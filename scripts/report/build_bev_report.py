@@ -67,6 +67,7 @@ from bev.sample import SampleBoxProjection
 REPORT_DIR = "docs"
 DATA_DIR = os.path.join(REPORT_DIR, "bev_data")
 SECTION_FILE = os.path.join(REPORT_DIR, "_bev_section.html")
+THUMBNAIL_FILE = os.path.join(REPORT_DIR, "bev_thumbnail.png")  # the home page's BEV card
 NUM_SCENES = 3  # one sample from each of the first N scenes, for variety
 GRID_HALF_EXTENT_METERS = 25.0  # same as the validated scripts/validation/check_raster.py
 CELL_SIZE_METERS = 0.25
@@ -448,6 +449,28 @@ def box_traces(data: dict) -> list:
     return traces
 
 
+def write_thumbnail(data: dict, path: str) -> None:
+    """Render a small, axis-free version of the scatter view (points + box footprints) as a PNG."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=160)
+    u, c = data["scatter"]["uncovered"], data["scatter"]["colored"]
+    ax.scatter(u["x"], u["y"], s=1.5, c=UNCOVERED_COLOR, alpha=0.6, linewidths=0)
+    ax.scatter(c["x"], c["y"], s=1.5, c=c["color"], linewidths=0)
+    for box in data["boxes"]:
+        ax.plot(box["x"], box["y"], lw=1.2,
+                color=CATEGORY_COLORS.get(box["category"], OTHER_CATEGORY_COLOR))
+    ax.set_xlim(-GRID_HALF_EXTENT_METERS, GRID_HALF_EXTENT_METERS)
+    ax.set_ylim(-GRID_HALF_EXTENT_METERS, GRID_HALF_EXTENT_METERS)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    fig.subplots_adjust(0, 0, 1, 1)
+    fig.savefig(path, facecolor="white")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     nusc = NuScenes(version=NUSCENES_VERSION, dataroot=NUSCENES_DATAROOT, verbose=True)
 
@@ -468,6 +491,8 @@ if __name__ == "__main__":
         samples.append({"token": sample_token, "scene_name": scene["name"], "data": data})
 
     default_sample = samples[0]
+    write_thumbnail(default_sample["data"], THUMBNAIL_FILE)
+    print(f"Wrote {THUMBNAIL_FILE}")
     default_fig = go.Figure(raster_traces(default_sample["data"]) + box_traces(default_sample["data"]))
     default_fig.update_layout(**bev_layout())
     initial_html = default_fig.to_html(full_html=False, include_plotlyjs="cdn", div_id="bev-chart")
