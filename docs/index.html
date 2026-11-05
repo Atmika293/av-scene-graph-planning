@@ -109,6 +109,9 @@ img { max-width: 100%; height: auto; }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; max-width: none; }
 .stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+a.stat { display: block; text-decoration: none; color: var(--ink); }
+a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
+.stat .thumb { display: block; width: 100%; height: 84px; object-fit: cover; border-radius: 6px; }
 .stat .value { font-size: 1.7em; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .label { color: var(--muted); font-size: 0.88em; margin-top: 6px; line-height: 1.4; }
 
@@ -155,6 +158,7 @@ img { max-width: 100%; height: auto; }
 <a href="https://www.nuscenes.org/">nuScenes</a> dataset, with each stage validated against an independent
 reference before the next one builds on it. The learning and build logs document the reading,
 decisions and mistakes along the way.</p>
+<p><a href="https://github.com/Atmika293/av-scene-graph-planning">View the code on GitHub →</a></p>
 <div class="skill-pills">
 <span class="pill">Ray</span>
 <span class="pill">PyArrow</span>
@@ -177,9 +181,8 @@ decisions and mistakes along the way.</p>
 validated, with the interactive views published. <strong>Reading:</strong> Lift-Splat-Shoot, the first
 of the learned BEV papers. See the <a href="roadmap.html">roadmap</a> for what comes next.</p>
 <div class="stats">
-<div class="stat"><div class="value">205 / 205</div><div class="label">boxes whose LiDAR point count matches nuScenes' own <code>num_lidar_pts</code></div></div>
-<div class="stat"><div class="value">64,192</div><div class="label">ingested values cross-checked field-by-field against the devkit, 0 mismatches</div></div>
-<div class="stat"><div class="value">1.53×</div><div class="label">best Ray speedup (4 workers), and why it stops there</div></div>
+<a class="stat" href="results.html#performance"><div class="value">1.53×</div><div class="label">best Ray speedup (4 workers), and why it stops there</div></a>
+<a class="stat" href="bev.html"><img class="thumb" src="bev_thumbnail.png" alt="Top-down view of LiDAR points coloured by camera, with annotated boxes"><div class="label">LiDAR + camera fusion in bird's-eye view: explore the interactive views</div></a>
 </div>
 
 <h2 id="explore">Explore</h2>
