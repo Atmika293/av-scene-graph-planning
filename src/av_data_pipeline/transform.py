@@ -74,7 +74,7 @@ class CameraTransformPipeline:
         return transform.apply(global_coords, inverse=True)
 
 
-    def camera_to_sensor(self, camera_coords: np.array) -> np.array:
+    def camera_to_sensor(self, camera_coords: np.array, get_mask=False) -> np.array:
         """Project camera-frame 3D points onto the 2D sensor plane via the intrinsics.
 
         Points behind the camera (non-positive depth) are discarded before projection.
@@ -92,7 +92,11 @@ class CameraTransformPipeline:
         sensor_coords = self.calibration_matrix @ camera_coords.T
         # Perspective divide: normalize by depth to get pixel coordinates.
         normalized_pts = sensor_coords[:2, :] / sensor_coords[2, :]
-        return normalized_pts.T
+
+        if get_mask:
+            return normalized_pts.T, in_front
+        else:
+            return normalized_pts.T
 
 
     def clip_to_canvas(self, sensor_projection: np.array) -> Optional[list]:
@@ -223,7 +227,7 @@ class SampleTransformPipeline:
                 zero LiDAR points (N_LIDAR_PTS) are skipped.
         """
         self.camera_pipelines = {}
-        for _, sensor_data in sample_data["CAMERA"].items():
+        for _, sensor_data in sample_data[SENSOR_MODALITY_KEYS['camera']].items():
             sample_data_token_key = SAMPLE_DATA_INGESTION_KEYS['token']
             self.camera_pipelines[sensor_data[sample_data_token_key]] = CameraTransformPipeline(sensor_data)
 

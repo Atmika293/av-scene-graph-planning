@@ -64,6 +64,12 @@ TRANSFORM_KEYS = {
     "annotation_size": "SIZE"
 }
 
+SENSOR_MODALITY_KEYS = {
+    "camera": "CAMERA",
+    "radar": "RADAR",
+    "lidar": "LIDAR"
+}
+
 # Aggregate key constant -> raw nuScenes ego_pose field name.
 EGO_POSE_KEYS_MAP = {
     TRANSFORM_KEYS['ego_pose_translation']: 'translation',
