@@ -95,6 +95,15 @@ img { max-width: 100%; height: auto; }
 .badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
 .badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
 .badge.fail { background: #fdecec; color: #b42318; }
+
+.skill-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+.skill-pills .pill { display: inline-block; padding: 5px 14px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.88em; font-weight: 600; }
+
+.tags { margin: 4px 0 0; }
+.tags .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: 0.78em; font-weight: 600; margin: 2px 4px 2px 0; }
+
 .callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
 .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
 
@@ -143,10 +152,17 @@ img { max-width: 100%; height: auto; }
 <section id="home" class="prose">
 <h1 id="av-perception-nuscenes-pipeline">AV Perception: nuScenes Pipeline</h1>
 <p class="lede">A self-directed project building an autonomous-vehicle perception pipeline on the
-<a href="https://www.nuscenes.org/">nuScenes</a> dataset, and a record of learning the field while
-building it. Each stage is validated against an independent reference before the next one
-is allowed to build on it, and this site documents the reading, the decisions, and the
-mistakes along the way as much as the results.</p>
+<a href="https://www.nuscenes.org/">nuScenes</a> dataset, with each stage validated against an independent
+reference before the next one builds on it. The learning and build logs document the reading,
+decisions and mistakes along the way.</p>
+<div class="skill-pills">
+<span class="pill">Ray</span>
+<span class="pill">PyArrow</span>
+<span class="pill">SE(3) / SciPy</span>
+<span class="pill">OpenCV</span>
+<span class="pill">Plotly</span>
+</div>
+
 <div class="progress-strip" aria-label="Roadmap progress: phase 2 of 7 in progress">
 <div class="done">1 · Foundations</div>
 <div class="current">2 · Ingestion + fusion</div>
@@ -161,7 +177,6 @@ mistakes along the way as much as the results.</p>
 validated, with the interactive views published. <strong>Reading:</strong> Lift-Splat-Shoot, the first
 of the learned BEV papers. See the <a href="roadmap.html">roadmap</a> for what comes next.</p>
 <div class="stats">
-<div class="stat"><div class="value">0.9997</div><div class="label">lowest IoU across 17,683 reprojected boxes vs. nuScenes' reference</div></div>
 <div class="stat"><div class="value">205 / 205</div><div class="label">boxes whose LiDAR point count matches nuScenes' own <code>num_lidar_pts</code></div></div>
 <div class="stat"><div class="value">64,192</div><div class="label">ingested values cross-checked field-by-field against the devkit, 0 mismatches</div></div>
 <div class="stat"><div class="value">1.53×</div><div class="label">best Ray speedup (4 workers), and why it stops there</div></div>
@@ -173,7 +188,7 @@ of the learned BEV papers. See the <a href="roadmap.html">roadmap</a> for what c
 <a class="card" href="build.html"><strong>Build log</strong><span>Each milestone: goal, approach, how I checked it, what I learned.</span></a>
 <a class="card" href="validation.html"><strong>Validation</strong><span>The chain of checks behind every stage, each against an independent reference, with its latest result.</span></a>
 <a class="card" href="results.html"><strong>Results</strong><span>Ray scaling benchmark and projection-accuracy analysis.</span></a>
-<a class="card" href="bev.html"><strong>BEV views</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>
+<a class="card" href="bev.html"><strong>BEV fusion</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>
 <a class="card" href="roadmap.html"><strong>Roadmap</strong><span>The seven-phase plan, the optional extensions, and where this project is in it.</span></a>
 </div>
 </section>

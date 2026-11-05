@@ -95,6 +95,15 @@ img { max-width: 100%; height: auto; }
 .badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
 .badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
 .badge.fail { background: #fdecec; color: #b42318; }
+
+.skill-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+.skill-pills .pill { display: inline-block; padding: 5px 14px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.88em; font-weight: 600; }
+
+.tags { margin: 4px 0 0; }
+.tags .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: 0.78em; font-weight: 600; margin: 2px 4px 2px 0; }
+
 .callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
 .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
 
@@ -144,8 +153,10 @@ img { max-width: 100%; height: auto; }
 <h1 id="build-log">Build log</h1>
 <p class="lede">Each milestone in the order it was built: the goal, the approach, how I checked it, and what
 it taught me. Dates come from the commit history.</p>
-<h2 id="1-schema-exploration-and-camera-sync-done">1 · Schema exploration and camera sync <span class="badge done">Done</span></h2>
+<h2 id="schema">1 · Schema exploration and camera sync <span class="badge done">Done</span></h2>
 <p class="meta">Sep 11 – Sep 13, 2026 · <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/nuscenes.ipynb">notebook</a></p>
+<div class="tags"><span class="tag">nuScenes devkit</span> <span class="tag">Pandas</span> <span class="tag">Matplotlib</span></div>
+
 <p><strong>Goal.</strong> Understand what nuScenes actually contains, and how its tables relate, before
 deciding what to extract.</p>
 <p><strong>Approach.</strong> Worked through the devkit tutorial on <code>v1.0-mini</code> (scenes, samples,
@@ -159,8 +170,10 @@ misalignment was rare noise or one camera being systematically late.</p>
 together: each camera's frame is the nearest one to the keyframe, so "synced" always means
 "synced within some tolerance", and that tolerance is a choice worth measuring before
 building on it.</p>
-<h2 id="2-ingestion-module-and-parquet-tables-done">2 · Ingestion module and Parquet tables <span class="badge done">Done</span></h2>
+<h2 id="ingestion">2 · Ingestion module and Parquet tables <span class="badge done">Done</span></h2>
 <p class="meta">Sep 13 – Nov 1, 2026 · <a href="validation.html#ingestion">checks</a></p>
+<div class="tags"><span class="tag">PyArrow</span> <span class="tag">Schema design</span></div>
+
 <p><strong>Goal.</strong> Turn the notebook's extraction into a module that writes typed Parquet tables
 (samples, sensor data, annotations, projected 2D boxes).</p>
 <p><strong>Approach.</strong> Moved the logic out of the notebook, then replaced every literal table/field
@@ -180,8 +193,30 @@ that didn't exist. All were fixed in one pass, and the checks have passed since.
 fed the wrong record. They look fine until something independent reads the same source.
 That's why the table check uses its own re-indexer rather than the code it's checking: reusing
 it would have hidden exactly these bugs.</p>
-<h2 id="3-ray-parallelized-ingestion-done">3 · Ray-parallelized ingestion <span class="badge done">Done</span></h2>
+<h2 id="projection">3 · Projection: global → ego → camera → pixel <span class="badge done">Done</span></h2>
+<p class="meta">Sep 24 – Nov 1, 2026 · <a href="validation.html#projection">checks</a> · <a href="results.html#correctness">analysis</a></p>
+<div class="tags"><span class="tag">SE(3) / SciPy</span> <span class="tag">Computer vision</span></div>
+
+<p><strong>Goal.</strong> Project every annotated 3D box into each camera that sees it, and prove the
+projection is right.</p>
+<p><strong>Approach.</strong> An SE(3) chain built on <code>scipy</code>'s <code>RigidTransform</code>: box corners from global to
+ego to camera frame, an in-front-of-camera filter, the intrinsics and perspective divide, then
+clipping the projected hull to the image canvas.</p>
+<p><strong>How I checked it.</strong> nuScenes ships a script that does the same projection, but it only
+outputs final boxes, so I forked it to also output the corners after every intermediate
+stage, and diffed my pipeline against it stage by stage. A disagreement now points at the
+exact transform that caused it. Then the end result: 17,683 boxes,
+lowest IoU 0.9997, with 0 boxes missing and
+0 invented.</p>
+<p><strong>What I learned.</strong> "Matches the reference" is only as strong as the reference: this proves my
+code agrees with the devkit's implementation, not with an independent ground truth (nuScenes
+has no separately annotated 2D boxes). And where IoU dips at all, it's on tiny or edge-clipped
+boxes, where a sub-pixel difference is a large fraction of the box. That's why the
+minimum-area cutoff for the image gallery is a setting (<code>config.toml</code>), not a constant.</p>
+<h2 id="ray">4 · Ray-parallelized ingestion <span class="badge done">Done</span></h2>
 <p class="meta">Oct 9 – Nov 1, 2026 · <a href="results.html#performance">benchmark</a></p>
+<div class="tags"><span class="tag">Ray</span> <span class="tag">Performance benchmarking</span></div>
+
 <p><strong>Goal.</strong> Find out whether parallelizing ingestion actually helps, and by how much.</p>
 <p><strong>Approach.</strong> A Ray driver (<code>partition.py</code>) that batches scenes, resolves each batch into a
 plain-dict manifest <em>in the driver</em> (<code>nusc.get()</code> is cheap list indexing, since
@@ -214,26 +249,10 @@ imports, <code>ray.init()</code>, loading the devkit's tables), which no number 
   per task without adding real parallel compute. Consolidating them into one task, alongside
   the bbox task, is why there are two tasks per batch, not four.</li>
 </ul>
-<h2 id="4-projection-global-ego-camera-pixel-done">4 · Projection: global → ego → camera → pixel <span class="badge done">Done</span></h2>
-<p class="meta">Sep 24 – Nov 1, 2026 · <a href="validation.html#projection">checks</a> · <a href="results.html#correctness">analysis</a></p>
-<p><strong>Goal.</strong> Project every annotated 3D box into each camera that sees it, and prove the
-projection is right.</p>
-<p><strong>Approach.</strong> An SE(3) chain built on <code>scipy</code>'s <code>RigidTransform</code>: box corners from global to
-ego to camera frame, an in-front-of-camera filter, the intrinsics and perspective divide, then
-clipping the projected hull to the image canvas.</p>
-<p><strong>How I checked it.</strong> nuScenes ships a script that does the same projection, but it only
-outputs final boxes, so I forked it to also output the corners after every intermediate
-stage, and diffed my pipeline against it stage by stage. A disagreement now points at the
-exact transform that caused it. Then the end result: 17,683 boxes,
-lowest IoU 0.9997, with 0 boxes missing and
-0 invented.</p>
-<p><strong>What I learned.</strong> "Matches the reference" is only as strong as the reference: this proves my
-code agrees with the devkit's implementation, not with an independent ground truth (nuScenes
-has no separately annotated 2D boxes). And where IoU dips at all, it's on tiny or edge-clipped
-boxes, where a sub-pixel difference is a large fraction of the box. That's why the
-minimum-area cutoff for the image gallery is a setting (<code>config.toml</code>), not a constant.</p>
-<h2 id="5-geometric-bev-fusion-done">5 · Geometric BEV fusion <span class="badge done">Done</span></h2>
+<h2 id="bev">5 · Geometric BEV fusion <span class="badge done">Done</span></h2>
 <p class="meta">Nov 1 – Nov 4, 2026 · <a href="validation.html#bev">checks</a> · <a href="bev.html">interactive views</a></p>
+<div class="tags"><span class="tag">OpenCV</span> <span class="tag">Plotly</span> <span class="tag">3D geometry</span></div>
+
 <p><strong>Goal.</strong> Fuse LiDAR and cameras into one top-down view: every LiDAR point, coloured by the
 camera that sees it, with annotated boxes overlaid.</p>
 <p><strong>Approach.</strong> Load each sample's LiDAR sweep into the ego frame; project the points into every
@@ -259,7 +278,7 @@ the raster against a deliberately naive reimplementation.</p>
   colour-blind-safe palette held up past seven distinct colours, so the six most common
   categories get their own colour and the rest share one.</li>
 </ul>
-<h2 id="6-full-dataset-ingestion-run-up-next">6 · Full-dataset ingestion run <span class="badge todo">Up next</span></h2>
+<h2 id="full-dataset">6 · Full-dataset ingestion run <span class="badge todo">Up next</span></h2>
 <p class="meta">Not yet started · <a href="results.html#performance">benchmark</a></p>
 <p><strong>Goal.</strong> Find out whether the parallelism measured on <code>v1.0-mini</code>
 (1.53× at 4 workers) holds on
