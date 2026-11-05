@@ -78,7 +78,7 @@ PAGES = [
     ]),
     Page("bev.html", "BEV", "Bird's-eye-view fusion · AV Perception", [
         Section("bev-intro", "About", content="bev.md", intro=True),
-        Section("bev", "BEV views", fragment=os.path.join(REPORT_DIR, "_bev_section.html")),
+        Section("bev", "Views", fragment=os.path.join(REPORT_DIR, "_bev_section.html")),
     ]),
     Page("roadmap.html", "Roadmap", "Roadmap · AV Perception", [
         Section("roadmap", "Roadmap", content="roadmap.md"),

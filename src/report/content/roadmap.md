@@ -26,9 +26,10 @@ on their own.
 
 - <span class="badge done">Done</span> Schema exploration and camera timestamp sync
 - <span class="badge done">Done</span> Ingestion module and Parquet tables, validated against the devkit
-- <span class="badge done">Done</span> Ray-parallelized ingestion and worker-count benchmark
 - <span class="badge done">Done</span> Global → ego → camera → pixel projection, validated
-- <span class="badge progress">In progress</span> Geometric BEV fusion: built, validated, and [published](bev.html)
+- <span class="badge done">Done</span> Ray-parallelized ingestion and worker-count benchmark
+- <span class="badge done">Done</span> Geometric BEV fusion: built, validated, and [published](bev.html)
+- <span class="badge todo">Up next</span> Full-dataset ingestion run
 - <span class="badge progress">Reading</span> BEV networks: Lift-Splat-Shoot, BEVFormer, BEVFusion, and a survey
 - <span class="badge todo">Optional</span> CAN-bus EKF pose estimate vs. nuScenes' ground-truth pose
 

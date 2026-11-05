@@ -1,8 +1,9 @@
 # AV Perception: nuScenes Pipeline
 
-Applying autonomous-vehicle perception techniques to the nuScenes dataset, with a focus on
-multi-camera/LiDAR sensor fusion and 3D scene understanding. It is built one validated stage at a
-time, and documented as a learning process as much as a set of results.
+A self-directed project building an autonomous-vehicle perception pipeline on the nuScenes
+dataset, focused on multi-camera/LiDAR sensor fusion and 3D scene understanding, with each stage
+validated against an independent reference before the next one builds on it. The learning and
+build logs document the reading, decisions and mistakes along the way.
 
 **Project site:** published from [`docs/`](docs/) via GitHub Pages: a learning log, a dated
 build log, the validation checks with their latest results, the benchmark and projection results,
@@ -14,9 +15,10 @@ and interactive BEV views. Every number on it is computed from the pipeline's ow
 color: built, validated, and published as interactive views. **Reading:** Lift-Splat-Shoot, the
 first of the learned BEV papers.
 
-Done so far: foundations (projective geometry, SE(3)), schema exploration, single-machine and
-Ray-parallelized ingestion, and the global → ego → camera → pixel projection chain, validated
-against nuScenes' own reference projection.
+Done so far: foundations (projective geometry, SE(3)), schema exploration, single-machine
+ingestion, the global → ego → camera → pixel projection chain validated against nuScenes' own
+reference projection, Ray-parallelized ingestion, and geometric BEV fusion of LiDAR + camera,
+published as interactive views.
 
 **Up next:** a full-dataset ingestion run on Runpod, to see whether the speedup measured on
 `v1.0-mini` holds at full scale or a different bottleneck (disk I/O, worker memory, scheduling)
@@ -24,36 +26,23 @@ takes over.
 
 ## Approach: validate each stage before building on it
 
-Each stage is checked against an independent reference before the next stage is allowed to trust
-it, so a bug surfaces at the stage that introduced it rather than at the end of the pipeline:
-
-| Stage | Check | Compared against |
-|---|---|---|
-| Scene → sample traversal | `scripts/validation/verify_sample_tokens.py` | nuScenes' `field2token` table scan |
-| Ingestion field mapping | `scripts/validation/verify_ingestion_keys.py` | raw devkit records, field by field |
-| Table row construction | `scripts/validation/verify_table_rows.py` | schema columns + an independent re-indexer, not the code under test |
-| Projection, per stage | `scripts/validation/evaluate_projections.py` | corners after each transform stage of a fork of the devkit's 2D exporter (`scripts/validation/export_2d_annotations_debug.py`) |
-| Projection, end result | `scripts/validation/evaluate_projections.py` | 2D box IoU vs. `image_annotations.json` |
-| BEV: ego-frame orientation | `scripts/validation/check_orientation.py` | the vehicle's real motion between consecutive samples |
-| BEV: LiDAR file columns | `scripts/validation/check_intensity.py` | the devkit's `LidarPointCloud.from_file` |
-| BEV: points inside each box | `scripts/validation/check_box_containment.py` | nuScenes' annotated `num_lidar_pts` per box |
-| BEV: box separation *(diagnostic)* | `scripts/validation/check_box_containment.py` | none: a nearest-neighbour gap ratio that flags outliers for inspection rather than failing them |
-| BEV: camera colour sampling | `scripts/validation/check_remap.py` | hand-computed bilinear interpolation |
-| BEV: raster channels | `scripts/validation/check_raster.py` | a naive per-point reimplementation + sentinel/mask rules |
-
-One caveat: the projection checks confirm agreement with the devkit's implementation, not with an
-independent ground truth, since nuScenes has no separately annotated 2D boxes.
+Built the habit of validating each stage against something independent of the code under test:
+ingestion fields checked field-by-field against raw devkit records, projection checked
+stage-by-stage against a fork of nuScenes' own exporter, BEV fusion checked against the devkit's
+annotated LiDAR-point counts and its own loader -- so a bug surfaces at the stage that introduced
+it, not at the end of the pipeline. See the full set of checks and their latest results on the
+[Validation page](docs/validation.html).
 
 ## Tech Stack
 
-- Python
-- nuScenes devkit
-- NumPy / SciPy (`scipy.spatial.transform` for SE(3))
-- OpenCV
-- PyArrow (tabular output)
-- Ray (parallel ingestion)
-- Pandas / Plotly / Matplotlib (analysis + visualization)
-- Python-Markdown (project site)
+- Python -- the pipeline's implementation language
+- nuScenes devkit -- ground truth and reference implementations for every validation check
+- NumPy / SciPy (`scipy.spatial.transform` for SE(3)) -- the projection chain's rigid-body transforms
+- OpenCV -- bilinear colour sampling for LiDAR-to-camera fusion (`cv2.remap`)
+- PyArrow -- typed, schema-validated Parquet tables
+- Ray -- parallel ingestion, benchmarked across worker counts
+- Pandas / Plotly / Matplotlib -- analysis and the site's interactive charts
+- Python-Markdown -- renders the project site's hand-written pages
 
 ## Building the project site
 
@@ -87,19 +76,19 @@ The result sections are generated by their own scripts first: `benchmark.py` (pe
   - [x] **Single-machine ingestion:** per sample, synced the 6 camera streams to the reference
     keyframe by nearest timestamp, thresholded (43.5ms) and visualized the resulting skew
     (histogram, scatter, per-camera box plot) to sanity-check the sync, and wrote the synced
-    records plus ego pose + calibration out. Verified against the devkit by the first three
-    checks above
-  - [x] **Ray-parallelized ingestion:** re-ran that ingestion under Ray across a sweep of worker
-    counts (1/2/4/8) with repeated timed runs, to measure actual throughput gains and where the
-    fixed per-worker cost (interpreter startup, imports, `ray.init()`) stops paying off. See
-    `benchmark.py` and the site's Results page
+    records plus ego pose + calibration out. Verified against the devkit by three independent
+    checks (see the Validation page)
   - [x] **Global → ego → camera → pixel SE(3) projection, validated:** implemented the transform
     chain that takes a 3D point from world space through ego and camera space onto the image, then
     validated it by reprojecting every ground-truth 3D box into each camera it's visible in:
     diffing the box corners after every intermediate stage, then comparing the final 2D box to
     nuScenes' own via IoU. See `evaluate_projections.py`, `visualize_projections.py`, and the
     site's Results page
-  - [ ] **Geometric BEV fusion** (in progress): load each sample's LiDAR sweep into the ego frame
+  - [x] **Ray-parallelized ingestion:** re-ran the ingestion under Ray across a sweep of worker
+    counts (1/2/4/8) with repeated timed runs, to measure actual throughput gains and where the
+    fixed per-worker cost (interpreter startup, imports, `ray.init()`) stops paying off. See
+    `benchmark.py` and the site's Results page
+  - [x] **Geometric BEV fusion:** load each sample's LiDAR sweep into the ego frame
     (`src/bev/lidar.py`), color each point by projecting it into the cameras that see it
     (`src/bev/fusion.py`, reusing the validated camera projection), bring the annotated boxes into
     the same frame (`src/bev/sample.py`), and bin the points into a multi-channel raster of color,

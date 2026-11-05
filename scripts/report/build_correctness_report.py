@@ -399,6 +399,20 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
         for i, (heading, fig, note) in enumerate(charts)
     )
 
+    reference_html = (
+        "<p class=\"chart-note\"><strong>Where the reference boxes come from.</strong> "
+        "nuScenes has no separately hand-labelled 2D boxes. Its devkit derives them from "
+        "the 3D annotations with <code>export_2d_annotations_as_json.py</code>, which "
+        "projects each 3D box into every camera that sees it and clips the result to the "
+        "image. The reference here comes from a fork of that script "
+        "(<code>scripts/validation/export_2d_annotations_debug.py</code>): its projection "
+        "logic is copied verbatim, so its final boxes are identical to the devkit's, but it "
+        "also records the box corners after every intermediate transform stage, so a "
+        "disagreement can be traced to the exact stage that caused it. A high IOU therefore "
+        "means this project's own implementation of the projection chain agrees with the "
+        "devkit's; it is not a comparison against independently labelled 2D boxes.</p>"
+    )
+
     iou_formula_html = (
         "<p class=\"chart-note\">Every chart below is built on IOU "
         "(intersection-over-union) between our computed 2D bbox and the nuScenes "
@@ -415,6 +429,7 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
         f"{KATEX_CDN_HTML}\n"
         "<h2>Correctness: projection accuracy vs. reference</h2>\n"
         f"{build_stats_grid_html(records)}\n"
+        f"{reference_html}\n"
         f"{iou_formula_html}\n"
         f"{chart_html}\n"
         "<h3>Sample localizations</h3>\n"

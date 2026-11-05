@@ -111,6 +111,15 @@ img { max-width: 100%; height: auto; }
 .badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
 .badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
 .badge.fail { background: #fdecec; color: #b42318; }
+
+.skill-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+.skill-pills .pill { display: inline-block; padding: 5px 14px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.88em; font-weight: 600; }
+
+.tags { margin: 4px 0 0; }
+.tags .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: 0.78em; font-weight: 600; margin: 2px 4px 2px 0; }
+
 .callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
 .callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
 

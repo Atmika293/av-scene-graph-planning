@@ -6,11 +6,18 @@ below is a {{stat:...}} directive, filled in from reports/ at build time.
 # AV Perception: nuScenes Pipeline
 
 A self-directed project building an autonomous-vehicle perception pipeline on the
-[nuScenes](https://www.nuscenes.org/) dataset, and a record of learning the field while
-building it. Each stage is validated against an independent reference before the next one
-is allowed to build on it, and this site documents the reading, the decisions, and the
-mistakes along the way as much as the results.
+[nuScenes](https://www.nuscenes.org/) dataset, with each stage validated against an independent
+reference before the next one builds on it. The learning and build logs document the reading,
+decisions and mistakes along the way.
 {: .lede }
+
+<div class="skill-pills">
+<span class="pill">Ray</span>
+<span class="pill">PyArrow</span>
+<span class="pill">SE(3) / SciPy</span>
+<span class="pill">OpenCV</span>
+<span class="pill">Plotly</span>
+</div>
 
 <div class="progress-strip" aria-label="Roadmap progress: phase 2 of 7 in progress">
 <div class="done">1 · Foundations</div>
@@ -27,7 +34,6 @@ validated, with the interactive views published. **Reading:** Lift-Splat-Shoot, 
 of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 
 <div class="stats">
-<div class="stat"><div class="value">{{stat:projection.iou_min|.4f}}</div><div class="label">lowest IoU across {{stat:projection.iou_count|,}} reprojected boxes vs. nuScenes' reference</div></div>
 <div class="stat"><div class="value">{{stat:box_containment.verified}} / {{stat:box_containment.total}}</div><div class="label">boxes whose LiDAR point count matches nuScenes' own <code>num_lidar_pts</code></div></div>
 <div class="stat"><div class="value">{{stat:ingestion_keys.verified|,}}</div><div class="label">ingested values cross-checked field-by-field against the devkit, 0 mismatches</div></div>
 <div class="stat"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></div>
@@ -40,6 +46,6 @@ of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 <a class="card" href="build.html"><strong>Build log</strong><span>Each milestone: goal, approach, how I checked it, what I learned.</span></a>
 <a class="card" href="validation.html"><strong>Validation</strong><span>The chain of checks behind every stage, each against an independent reference, with its latest result.</span></a>
 <a class="card" href="results.html"><strong>Results</strong><span>Ray scaling benchmark and projection-accuracy analysis.</span></a>
-<a class="card" href="bev.html"><strong>BEV views</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>
+<a class="card" href="bev.html"><strong>BEV fusion</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>
 <a class="card" href="roadmap.html"><strong>Roadmap</strong><span>The seven-phase plan, the optional extensions, and where this project is in it.</span></a>
 </div>
