@@ -125,7 +125,7 @@ boxes, where a sub-pixel difference is a large fraction of the box. That's why t
 minimum-area cutoff for the image gallery is a setting (`config.toml`), not a constant.
 
 ## 5 · Geometric BEV fusion <span class="badge done">Done</span>
-{{dates: src/bev scripts/report/build_bev_report.py scripts/validation/check_orientation.py scripts/validation/check_intensity.py scripts/validation/check_box_containment.py scripts/validation/check_remap.py scripts/validation/check_raster.py scripts/viz/render_bev.py scripts/viz/render_bev_3d.py}} · [checks](validation.html#bev) · [interactive views](bev.html)
+Nov 1 – Nov 4, 2026 · [checks](validation.html#bev) · [interactive views](bev.html)
 {: .meta }
 
 **Goal.** Fuse LiDAR and cameras into one top-down view: every LiDAR point, coloured by the
