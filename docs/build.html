@@ -27,11 +27,15 @@ document.addEventListener("DOMContentLoaded", function() {
   --pass: #1d7a46; --pass-soft: #e5f4ec;
   --info: #8a5a00; --info-soft: #fbf1dc;
   --todo: #6b7280; --todo-soft: #eef0f2;
-  /* Fluid, not a fixed cap: scales with the viewport up to a comfortable
-     desktop width instead of leaving a growing dead margin past 1100px on
-     anything wider than a small laptop. Shared by the header/main/footer so
-     they can't drift out of alignment with each other. */
-  --page-width: min(94vw, 1400px);
+  /* A ceiling, not a target width: used as max-width (not width) below, so
+     a block still fills 100% of its container and shrinks to fit a narrow
+     screen exactly like the browser's own default behavior, only capping
+     once a screen is wide enough to hit this value. An earlier version
+     used width: min(94vw, 1400px) here, which reserved a proportional
+     margin on every screen, including phones that never needed one --
+     confirmed by comparing rendered widths at common phone sizes, not just
+     assumed. Shared by the header/main/footer so they can't drift apart. */
+  --page-width: 1400px;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -42,7 +46,7 @@ code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   padding: 1px 5px; border-radius: 4px; }
 
 .site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
-.site-header .inner { width: var(--page-width); margin: 0 auto; padding: 12px 16px;
+.site-header .inner { max-width: var(--page-width); margin: 0 auto; padding: 12px 16px;
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
 .brand { font-weight: 700; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
 nav.pages { display: flex; flex-wrap: wrap; gap: 4px 18px; }
@@ -50,7 +54,7 @@ nav.pages a { color: var(--muted); text-decoration: none; font-weight: 500; padd
 nav.pages a:hover { color: var(--ink); }
 nav.pages a[aria-current] { color: var(--ink); border-bottom: 2px solid var(--accent); }
 
-main { width: var(--page-width); margin: 0 auto; padding: 28px 16px 48px; }
+main { max-width: var(--page-width); margin: 0 auto; padding: 28px 16px 48px; }
 nav.sections { margin: 0 0 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92em; }
 nav.sections::before { content: "On this page:"; color: var(--faint); }
 nav.sections a { text-decoration: none; font-weight: 600; }
@@ -127,7 +131,7 @@ img { max-width: 100%; height: auto; }
 .table-scroll { overflow-x: auto; }
 
 .site-footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 0.88em; }
-.site-footer .inner { width: var(--page-width); margin: 0 auto; padding: 16px; }
+.site-footer .inner { max-width: var(--page-width); margin: 0 auto; padding: 16px; }
 </style>
 </head>
 <body>
