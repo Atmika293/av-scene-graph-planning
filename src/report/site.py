@@ -7,8 +7,8 @@ of three kinds:
                via report.markup -- prose, with {{stat:...}}/{{dates:...}}
                directives filled in from the latest run data and git history
     fragment   a generated docs/_*.html section from a script that needs the
-               dataset to run (benchmark.py, build_correctness_report.py,
-               build_bev_report.py) -- optional: skipped if not built yet
+               dataset to run (benchmark.py, benchmark_task_layout.py,
+               build_correctness_report.py, build_bev_report.py) -- optional: skipped if not built yet
     render     generated at site-build time from reports/ (e.g.
                report.validation.render, the Validation page's check table)
 
@@ -50,6 +50,7 @@ class Section(NamedTuple):
 
 
 class Page(NamedTuple):
+    """One published page: its output file, nav label, <title>, and sections in order."""
     filename: str
     label: str
     title: str
@@ -65,6 +66,11 @@ PAGES = [
     ]),
     Page("build.html", "Build log", "Build log · AV Perception", [
         Section("build", "Build log", content="build.md"),
+    ]),
+    Page("experiments.html", "Experiments", "Experiments · AV Perception", [
+        Section("experiments-intro", "About", content="experiments.md", intro=True),
+        Section("task-layout", "Ray task layout", content="experiments_task_layout.md"),
+        Section("task-layout-data", "Data", fragment=os.path.join(REPORT_DIR, "_task_layout_section.html")),
     ]),
     Page("validation.html", "Validation", "Validation · AV Perception", [
         Section("validation-intro", "Approach", content="validation.md", intro=True),

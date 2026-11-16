@@ -25,6 +25,7 @@ TALLY_RE = re.compile(r"^\s*([^:\n]+):\s*(\d+)/(\d+)\s*$", re.MULTILINE)
 
 
 def _read(name: str) -> str | None:
+    """A reports/ file's text, or None if that report hasn't been generated yet."""
     path = os.path.join(REPORTS_DIR, name)
     if not os.path.exists(path):
         return None
@@ -33,6 +34,7 @@ def _read(name: str) -> str | None:
 
 
 def _read_json(name: str):
+    """A reports/ JSON file, parsed, or None if it hasn't been generated yet."""
     text = _read(name)
     return None if text is None else json.loads(text)
 
@@ -47,14 +49,17 @@ def _tally(text: str, section: str | None = None) -> tuple[int, int]:
 
 
 def _float(text: str, label: str) -> float:
+    """The number after the first "label:" in text (label is a regex)."""
     return float(re.search(rf"{label}:\s*([-\d.]+)", text).group(1))
 
 
 def _int(text: str, label: str) -> int:
+    """The integer after the first "label:" in text (label is a regex)."""
     return int(re.search(rf"{label}:\s*(\d+)", text).group(1))
 
 
 def sample_tokens() -> dict | None:
+    """verify_sample_tokens.py: scenes whose linked-list walk matches field2token."""
     text = _read("verify_sample_tokens.txt")
     if text is None:
         return None
@@ -63,6 +68,7 @@ def sample_tokens() -> dict | None:
 
 
 def ingestion_keys() -> dict | None:
+    """verify_ingestion_keys.py: field values matching the raw devkit records, and how many fields were checked."""
     text = _read("verify_ingestion_keys.txt")
     if text is None:
         return None
@@ -71,6 +77,7 @@ def ingestion_keys() -> dict | None:
 
 
 def table_rows() -> dict | None:
+    """verify_table_rows.py: overall tally, plus the column-set, per-value and smoke-test sections separately."""
     text = _read("verify_table_rows.txt")
     if text is None:
         return None
@@ -85,6 +92,7 @@ def table_rows() -> dict | None:
 
 
 def projection() -> dict | None:
+    """evaluate_projections.py: per-stage corner tallies, final-box IoU stats, and missing/extra box counts."""
     text = _read("evaluate_projections.txt")
     if text is None:
         return None
@@ -104,6 +112,7 @@ def projection() -> dict | None:
 
 
 def box_containment() -> dict | None:
+    """check_box_containment.py: boxes whose point count matches num_lidar_pts, plus the separation diagnostic."""
     text = _read("box_containment_check.txt")
     if text is None:
         return None
@@ -119,6 +128,7 @@ def box_containment() -> dict | None:
 
 
 def orientation() -> dict | None:
+    """check_orientation.py: how well the ego +x axis tracks the vehicle's real motion, across moving scenes."""
     scenes = _read_json("orientation_check.json")
     if scenes is None:
         return None
@@ -140,6 +150,7 @@ def orientation() -> dict | None:
 
 
 def remap() -> dict | None:
+    """check_remap.py: whether colour sampling matches hand-computed bilinear interpolation, and the largest difference."""
     data = _read_json("remap_check.json")
     if data is None:
         return None
@@ -151,6 +162,7 @@ def remap() -> dict | None:
 
 
 def intensity() -> dict | None:
+    """check_intensity.py: LiDAR points whose columns match the devkit's own loader."""
     text = _read("intensity_check.txt")
     if text is None:
         return None
@@ -159,6 +171,7 @@ def intensity() -> dict | None:
 
 
 def raster() -> dict | None:
+    """check_raster.py: samples passing the consistency rules, and matches against the naive implementation."""
     text = _read("raster_check.txt")
     if text is None:
         return None
@@ -172,6 +185,7 @@ def raster() -> dict | None:
 
 
 def benchmark() -> dict | None:
+    """benchmark.py: mean wall time per worker count, reduced to the headline speedup and startup share."""
     text = _read("benchmark_results.jsonl")
     if text is None:
         return None
@@ -201,8 +215,64 @@ def benchmark() -> dict | None:
 
 
 @cache
+def task_layout() -> dict | None:
+    """benchmark_task_layout.py: 2 vs. 4 Ray tasks per batch, after startup, plus where task compute goes.
+
+    "Within noise" uses the same rule as benchmark_task_layout.py's verdict
+    column: the difference is smaller than the two layouts' stdevs added.
+    """
+    text = _read("task_layout_results.jsonl")
+    if text is None:
+        return None
+    work: dict[tuple[str, int], list[float]] = {}
+    bbox: dict[tuple[str, int], list[float]] = {}
+    core: dict[tuple[str, int], list[float]] = {}
+    for line in text.splitlines():
+        run = json.loads(line)
+        if not run["success"] or run["startup_overhead"] is None:
+            continue
+        key = (run["task_layout"], run["worker_count"])
+        work.setdefault(key, []).append(run["wall_time"] - run["startup_overhead"])
+        bbox.setdefault(key, []).append(sum(t["compute_time"] for t in run["task_timings"]
+                                            if t["label"].endswith("write_bboxes")))
+        core.setdefault(key, []).append(sum(t["compute_time"] for t in run["task_timings"]
+                                            if not t["label"].endswith("write_bboxes")))
+
+    worker_counts = sorted(wc for layout, wc in work if layout == "consolidated" and ("split", wc) in work)
+    diff_pct, faster, noise = {}, [], []
+    for wc in worker_counts:
+        cons, split = work[("consolidated", wc)], work[("split", wc)]
+        diff = statistics.mean(split) - statistics.mean(cons)
+        diff_pct[wc] = diff / statistics.mean(cons)
+        (noise if abs(diff) < statistics.stdev(cons) + statistics.stdev(split) else faster).append(wc)
+    shares = [statistics.mean(bbox[key]) / (statistics.mean(bbox[key]) + statistics.mean(core[key]))
+              for key in work]
+    core_means = [statistics.mean(core[key]) for key in work]
+
+    def joined(counts: list[int]) -> str:
+        """Worker counts as prose: "4", "4 and 8", "1, 2 and 4"."""
+        return " and ".join([", ".join(map(str, counts[:-1])), str(counts[-1])]) if len(counts) > 1 \
+            else "".join(map(str, counts))
+
+    return {
+        "repeats": min(len(runs) for runs in work.values()),
+        "worker_counts": "/".join(map(str, worker_counts)),
+        "diff_pct_max": max(diff_pct.values()),
+        "faster_workers": joined(faster),
+        "noise_workers": joined(noise),
+        "bbox_share_min": min(shares),
+        "bbox_share_max": max(shares),
+        "core_compute_min": min(core_means),
+        "core_compute_max": max(core_means),
+        "bbox_compute_fewest_workers": statistics.mean(bbox[("consolidated", worker_counts[0])]),
+        "bbox_compute_most_workers": statistics.mean(bbox[("consolidated", worker_counts[-1])]),
+        "fewest_workers": worker_counts[0],
+        "most_workers": worker_counts[-1],
+    }
+
+
 def all_stats() -> dict:
     """Every reader's result, keyed by reader name (None for a report not yet generated)."""
     readers = [sample_tokens, ingestion_keys, table_rows, projection, box_containment,
-               orientation, remap, intensity, raster, benchmark]
+               orientation, remap, intensity, raster, benchmark, task_layout]
     return {reader.__name__: reader() for reader in readers}

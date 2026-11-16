@@ -45,6 +45,7 @@ of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 <div class="cards">
 <a class="card" href="learning.html"><strong>Learning log</strong><span>What I studied for each phase, the ideas I took from it, and where they show up in the code.</span></a>
 <a class="card" href="build.html"><strong>Build log</strong><span>Each milestone: goal, approach, how I checked it, what I learned.</span></a>
+<a class="card" href="experiments.html"><strong>Experiments</strong><span>Decisions first made on reasoning, revisited and measured, with the results whichever way they went.</span></a>
 <a class="card" href="validation.html"><strong>Validation</strong><span>The chain of checks behind every stage, each against an independent reference, with its latest result.</span></a>
 <a class="card" href="results.html"><strong>Results</strong><span>Ray scaling benchmark and projection-accuracy analysis.</span></a>
 <a class="card" href="bev.html"><strong>BEV fusion</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>

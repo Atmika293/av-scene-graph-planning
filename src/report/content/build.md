@@ -89,7 +89,9 @@ boxes, where a sub-pixel difference is a large fraction of the box. That's why t
 minimum-area cutoff for the image gallery is a setting (`config.toml`), not a constant.
 
 ## 4 · Ray-parallelized ingestion <span class="badge done">Done</span> {: #ray }
-{{dates: partition.py benchmark.py}} · [benchmark](results.html#performance)
+<!-- Hand-dated: later feat: commits to partition.py/benchmark.py (the task-layout
+experiment, see experiments.md) aren't part of this milestone. -->
+Oct 9 – Nov 1, 2026 · [benchmark](results.html#performance)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Performance benchmarking</span></div>
 
@@ -126,7 +128,9 @@ imports, `ray.init()`, loading the devkit's tables), which no number of workers 
   genuinely independent of the others. Writing a table is cheap reshaping, though, so
   splitting the three core writes further only paid scheduling and deserialization overhead
   per task without adding real parallel compute. Consolidating them into one task, alongside
-  the bbox task, is why there are two tasks per batch, not four.
+  the bbox task, is why there are two tasks per batch, not four. Measured later, the
+  difference is at most {{stat:task_layout.diff_pct_max|.1%}}:
+  [Experiments](experiments.html#ray-task-layout).
 
 ## 5 · Geometric BEV fusion <span class="badge done">Done</span> {: #bev }
 Nov 1 – Nov 4, 2026 · [checks](validation.html#bev) · [interactive views](bev.html)
