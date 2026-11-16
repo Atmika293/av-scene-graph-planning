@@ -215,6 +215,40 @@ def benchmark() -> dict | None:
 
 
 @cache
+def camera_matching() -> dict | None:
+    """check_camera_matching.py: sweep-camera pairs matching the brute-force nearest frame, plus its self-test."""
+    text = _read("camera_matching_check.txt")
+    if text is None:
+        return None
+    verified, total = _tally(text, "Nearest-frame check")
+    caught, tests = _tally(text, "Self-test")
+    return {"verified": verified, "total": total, "self_test_caught": caught, "self_tests": tests}
+
+
+def multisweep() -> dict | None:
+    """check_multisweep.py: alignment vs. the devkit's accumulator, own-ego distance, merge rule, self-tests.
+
+    Alignment's tally is points only (its first line); the "Sweeps fully
+    aligned" line restates the same result per sweep, so it isn't summed in.
+    """
+    text = _read("multisweep_check.txt")
+    if text is None:
+        return None
+    alignment = re.search(r"Points within [^:]*, same intensity:\s*(\d+)/(\d+)", text)
+    sweeps = re.search(r"Sweeps fully aligned:\s*(\d+)/(\d+)", text)
+    distance = _tally(text, "Own-ego distance")
+    merge = _tally(text, "Merge rule")
+    self_tests = _tally(text, "Self-tests")
+    return {
+        "aligned_points": int(alignment.group(1)), "points": int(alignment.group(2)),
+        "aligned_sweeps": int(sweeps.group(1)), "sweeps": int(sweeps.group(2)),
+        "max_error_mm": float(re.search(r"Max alignment error \(mm\) = ([\d.]+)", text).group(1)),
+        "distance_ok": distance[0], "distance_total": distance[1],
+        "merge_ok": merge[0], "merge_total": merge[1],
+        "self_tests_caught": self_tests[0], "self_tests": self_tests[1],
+    }
+
+
 def task_layout() -> dict | None:
     """benchmark_task_layout.py: 2 vs. 4 Ray tasks per batch, after startup, plus where task compute goes.
 
@@ -274,5 +308,6 @@ def task_layout() -> dict | None:
 def all_stats() -> dict:
     """Every reader's result, keyed by reader name (None for a report not yet generated)."""
     readers = [sample_tokens, ingestion_keys, table_rows, projection, box_containment,
-               orientation, remap, intensity, raster, benchmark, task_layout]
+               orientation, remap, intensity, raster, camera_matching, multisweep,
+               benchmark, task_layout]
     return {reader.__name__: reader() for reader in readers}
