@@ -149,7 +149,7 @@ a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
 <body>
 <header class="site-header"><div class="inner">
 <a class="brand" href="index.html">AV Perception: nuScenes Pipeline</a>
-<nav class="pages"><a href="index.html">Home</a> <a href="learning.html">Learning</a> <a href="build.html" aria-current="page">Build log</a> <a href="validation.html">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
+<nav class="pages"><a href="index.html">Home</a> <a href="learning.html">Learning</a> <a href="build.html" aria-current="page">Build log</a> <a href="experiments.html">Experiments</a> <a href="validation.html">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
 </div></header>
 <main>
 <section id="build" class="prose">
@@ -250,7 +250,9 @@ imports, <code>ray.init()</code>, loading the devkit's tables), which no number 
   genuinely independent of the others. Writing a table is cheap reshaping, though, so
   splitting the three core writes further only paid scheduling and deserialization overhead
   per task without adding real parallel compute. Consolidating them into one task, alongside
-  the bbox task, is why there are two tasks per batch, not four.</li>
+  the bbox task, is why there are two tasks per batch, not four. Measured later, the
+  difference is at most 1.4%:
+  <a href="experiments.html#ray-task-layout">Experiments</a>.</li>
 </ul>
 <h2 id="bev">5 · Geometric BEV fusion <span class="badge done">Done</span></h2>
 <p class="meta">Nov 1 – Nov 4, 2026 · <a href="validation.html#bev">checks</a> · <a href="bev.html">interactive views</a></p>
