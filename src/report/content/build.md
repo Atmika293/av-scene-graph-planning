@@ -165,7 +165,38 @@ the raster against a deliberately naive reimplementation.
   colour-blind-safe palette held up past seven distinct colours, so the six most common
   categories get their own colour and the rest share one.
 
-## 6 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
+## 6 · Experiments: measuring a decision I'd only reasoned about <span class="badge done">Done</span> {: #experiments }
+{{dates: benchmark_task_layout.py}} · [experiment](experiments.html#ray-task-layout)
+{: .meta }
+<div class="tags"><span class="tag">Ray</span> <span class="tag">Experiment design</span></div>
+
+**Goal.** Test a claim this log already makes. Entry 4 says merging the three core-table writes
+into one Ray task removed per-task overhead, but I never timed the four-task layout before
+switching.
+
+**Approach.** Bring the four-task layout back behind a config switch, so both layouts share
+every other code path, and run both through the main benchmark's harness. The two layouts'
+runs alternate, with the order swapped each repeat, and the metric is time after startup,
+since startup costs the same under both. Each task's own timing is recorded, so the result
+can be split by task type from the same runs.
+
+**Result.** Two tasks per batch was faster by at most {{stat:task_layout.diff_pct_max|.1%}}:
+consistently at {{stat:task_layout.faster_workers}} workers, within noise at
+{{stat:task_layout.noise_workers}}. Bbox projection is {{stat:task_layout.bbox_share_min|.0%}}
+to {{stat:task_layout.bbox_share_max|.0%}} of all task compute, so the core-table layout was
+never where the time went. The full write-up is on the new
+[Experiments](experiments.html) page.
+
+**What I learned.**
+
+- *A plausible explanation isn't a measurement.* The reasoning in entry 4 was right about the
+  direction, but it read as if it explained the design, and the effect turned out to be about
+  one percent.
+- *Measure the change, not just the outcome.* Splitting compute by task type, from the same
+  runs, is what showed where the time actually goes: bbox projection, which is the next thing
+  worth measuring.
+
+## 7 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
 Not yet started · [benchmark](results.html#performance)
 {: .meta }
 
