@@ -252,23 +252,36 @@ the ground (<a href="validation.html#multisweep">multisweep checks</a>).</p>
 </section>
 <section id="bev">
 <h2>BEV: lidar + camera fusion</h2>
-<p class="chart-note">Each lidar point is colored by whichever camera saw it (see
-<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/fusion.py">bev/fusion.py</a>),
-then either plotted directly (scatter) or binned into a fixed-size grid (raster).
-See <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/raster.py">bev/raster.py</a>
-and its validation in <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_raster.py">check_raster.py</a>.
-Blue marks lidar returns no camera covered; empty/white cells had no lidar return at all.
-Annotation box footprints (<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/sample.py">bev/sample.py</a>)
-are overlaid in each category's own color, per the legend.</p>
-<p class="chart-note"><strong>Sweeps.</strong> "1" shows the keyframe's own LiDAR sweep. "Multisweep"
-adds the sweeps just before it, each coloured by the camera frames nearest to it in time and moved
-into the keyframe's ego frame, then merges them on the same grid: each cell keeps the newest sweep that
-reached it (<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py">bev/multisweep.py</a>,
-checked in the <a href="validation.html#multisweep">multisweep checks</a>). Boxes are the keyframe's,
-so anything that moved during the window leaves a trail behind its box. Blue bands can appear where
-the newest sweep to reach a cell had no camera frame close enough in time for that direction: the merge
-keeps that sweep's point rather than an older, coloured one. Multisweep has raster views
-only, plus "source sweep age": how long before the keyframe each cell's data was captured.</p>
+<div class="prose">
+<h3>Reading the chart</h3>
+<ul>
+<li><strong>Points:</strong> each LiDAR point takes the colour of the camera that sees it
+(<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/fusion.py">bev/fusion.py</a>), then is either plotted directly
+(<strong>scatter</strong>) or binned into a fixed-size grid (<strong>raster</strong>,
+<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/raster.py">bev/raster.py</a>, checked by
+<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_raster.py">check_raster.py</a>).</li>
+<li><strong>Blue:</strong> LiDAR returns no camera saw. <strong>White:</strong> cells with no
+LiDAR return at all.</li>
+<li><strong>Boxes:</strong> annotated box footprints
+(<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/sample.py">bev/sample.py</a>), each in its category's colour, per the legend.</li>
+</ul>
+<h3>The Sweeps menu</h3>
+<ul>
+<li><strong>1 (keyframe):</strong> the keyframe's own LiDAR sweep.</li>
+<li><strong>Multisweep:</strong> adds the sweeps just before it. Each is coloured by the camera
+frames nearest to it in time and moved into the keyframe's ego frame, then all are merged on the
+same grid, each cell keeping the newest sweep that reached it
+(<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py">bev/multisweep.py</a>, checked in the
+<a href="validation.html#multisweep">multisweep checks</a>).</li>
+<li><strong>Trails:</strong> boxes are the keyframe's, so anything that moved during the window
+leaves a trail behind its box.</li>
+<li><strong>Blue bands:</strong> the newest sweep to reach those cells had no camera frame close
+enough in time for that direction. The merge keeps that sweep's uncoloured point rather than an
+older, coloured one.</li>
+<li><strong>Views:</strong> raster views only, plus <strong>source sweep age</strong>: how long
+before the keyframe each cell's data was captured.</li>
+</ul>
+</div>
 <div style="margin:12px 0;">
 <label>View: <select id="bev-view-select">
 <option value="raster" selected>Raster (color)</option>
@@ -474,7 +487,7 @@ only, plus "source sweep age": how long before the keyframe each cell's data was
   document.getElementById("bev-sample-select").addEventListener("change", bevOnChange);
 })();
 </script>
-<div class="chart-note">
+<div class="prose">
 <h3>What each view shows</h3>
 <p>All views are in the keyframe's ego frame. The 2D ones are top-down, the car at
 the origin facing up the chart, within 25 m of it on each side.</p>
