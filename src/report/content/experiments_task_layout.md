@@ -3,7 +3,7 @@
 
 # Did consolidating Ray tasks matter?
 
-{{dates: benchmark_task_layout.py}} · revisits [build log §4](build.html#ray) · [build log §6](build.html#experiments) · [data](#data)
+{{dates: benchmark_task_layout.py}} · revisits [build log §4](build.html#ray) · [build log §7](build.html#experiments) · [data](#data)
 {: .meta }
 
 **The decision.** Ingestion first wrote each batch with four Ray tasks, one per output table:

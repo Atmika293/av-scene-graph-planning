@@ -165,7 +165,53 @@ the raster against a deliberately naive reimplementation.
   colour-blind-safe palette held up past seven distinct colours, so the six most common
   categories get their own colour and the rest share one.
 
-## 6 · Experiments: measuring a decision I'd only reasoned about <span class="badge done">Done</span> {: #experiments }
+## 6 · Multisweep BEV <span class="badge done">Done</span> {: #multisweep }
+<!-- Hand-dated: the multisweep work started Nov 4 but was first committed on
+Nov 16, so its commit dates alone would show a single day. -->
+Nov 4 – Nov 16, 2026 · [checks](validation.html#multisweep) · [interactive views](bev.html)
+{: .meta }
+<div class="tags"><span class="tag">nuScenes devkit</span> <span class="tag">3D geometry</span> <span class="tag">Plotly</span></div>
+
+**Goal.** One LiDAR sweep is sparse away from the car and leaves shadows behind anything in
+the way. Accumulate the sweeps from the half second before a keyframe into one BEV, to fill in
+more of the ground, without blurring what each raster cell means.
+
+**Approach.** Walk back from a keyframe through `LIDAR_TOP`'s previous-sweep links to build a
+window of sweeps. Match each sweep to every camera's frame nearest to it in time, within a
+maximum gap, and colour each sweep from its own matched images. Move every sweep through the
+global frame into the keyframe's ego frame, rasterize each on the same grid, and merge them
+newest first: each cell takes all of its channels from the newest sweep that reached it. On
+the [BEV page](bev.html), a Sweeps menu switches the viewer between the keyframe alone and the
+merged window, with an extra view showing how old each cell's data is.
+
+**How I checked it.** Four checks, each against something independent:
+
+- *Alignment* against the devkit's own sweep accumulator,
+  `LidarPointCloud.from_file_multisweep`: {{stat:multisweep.aligned_points|,}} /
+  {{stat:multisweep.points|,}} points within a millimetre of it, with the same intensity
+  (largest error {{stat:multisweep.max_error_mm|.3f}} mm).
+- *Camera matching* against a brute-force scan of nuScenes' `sample_data` table:
+  {{stat:camera_matching.verified|,}} / {{stat:camera_matching.total|,}} sweep and camera pairs.
+- *Distance to the sensor* against the devkit's single-sweep loader:
+  {{stat:multisweep.distance_ok|,}} / {{stat:multisweep.distance_total|,}} points.
+- *The merge* against a naive per-cell loop: {{stat:multisweep.merge_ok|,}} /
+  {{stat:multisweep.merge_total|,}} cells.
+
+The alignment, camera-matching and merge checks also run self-tests: deliberately wrong inputs
+that they have to report, so a pass means something.
+
+**What I learned.**
+
+- *"The ego frame" is many frames.* Every sweep and every camera image has its own, wherever
+  the car was at that instant. Even "nearest the sensor" changes meaning: it has to be measured
+  from the sweep's own origin, where the LiDAR actually was, not from the keyframe's.
+- *A merge rule decides what a cell means.* Taking each cell whole from one sweep keeps its
+  height, intensity and colour from one observation. The cost is visible on the page: where the
+  newest sweep had no matched camera, the cell stays uncoloured even if an older sweep saw it.
+- *Alignment only fixes the car's own motion.* The static world lines up across sweeps;
+  anything else that moved leaves a trail, and only the keyframe has boxes to explain it.
+
+## 7 · Experiments: testing the Ray task-layout claim <span class="badge done">Done</span> {: #experiments }
 {{dates: benchmark_task_layout.py}} · [experiment](experiment-ray-task-layout.html)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Experiment design</span></div>
@@ -196,7 +242,7 @@ never where the time went. The full write-up is on the new
   runs, is what showed where the time actually goes: bbox projection, which is the next thing
   worth measuring.
 
-## 7 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
+## 8 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
 Not yet started · [benchmark](result-ray-scaling.html)
 {: .meta }
 
