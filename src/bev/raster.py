@@ -30,6 +30,10 @@ it, including an independent per-point-loop cross-check in
 build_raster_naive) and scripts/report/build_bev_report.py (which publishes
 it), so both run the exact same validated code rather than two copies that
 could drift apart.
+
+merge_rasters combines per-sweep rasters from bev.multisweep into one,
+newest sweep first: each cell keeps every channel from the newest sweep that
+occupied it.
 """
 
 import numpy as np
@@ -46,7 +50,7 @@ def to_plot_xy(ego_xy: np.array) -> tuple[np.array, np.array]:
 
 
 def build_raster(ego_points: np.array, colors: np.array, intensity: np.array,
-                  half_extent: float, cell_size: float) -> dict:
+                  half_extent: float, cell_size: float, distance: np.array = None) -> dict:
     """Bin a sample's colored, ego-frame point cloud into a multi-channel raster.
 
     Args:
@@ -57,6 +61,12 @@ def build_raster(ego_points: np.array, colors: np.array, intensity: np.array,
         half_extent: Grid half-width/height in meters (grid covers
             [-half_extent, +half_extent] on both plot axes).
         cell_size: Grid cell size in meters.
+        distance: Optional per-point distance (N,) used to pick each cell's
+            nearest-to-ego group. Defaults to each point's distance from
+            ego_points' own origin. A multi-sweep caller (ego_points from
+            several sweeps, all in one reference sweep's ego frame) passes
+            each point's distance from its own sweep's ego origin instead, so
+            "nearest" still means nearest to the sensor that measured it.
 
     Returns:
         A dict with:
@@ -64,7 +74,7 @@ def build_raster(ego_points: np.array, colors: np.array, intensity: np.array,
           colored_mask (H, W) bool -- did this cell have at least one
               camera-colored point among its nearest-to-ego group (implies
               occupied_mask).
-          color (H, W, 3) int -- average color over the nearest-to-ego
+          color (H, W, 3) uint8 -- average color over the nearest-to-ego
               group's colored members, 0 where not colored_mask.
           height (H, W) float -- average ego-frame z over the nearest-to-ego
               group, NaN where not occupied_mask.
@@ -86,7 +96,12 @@ def build_raster(ego_points: np.array, colors: np.array, intensity: np.array,
     # pt_colors carries GeometricBEVPipeline's own per-point [-1,-1,-1]
     # sentinel (no camera covered that point).
     pt_colored = np.all(pt_colors != -1, axis=-1)
-    distance = np.linalg.norm(ego_points[in_bounds], axis=1)
+    # Per-point distance used to pick each cell's nearest-to-ego group. Defaults
+    # to distance from ego_points' own origin; a multi-sweep caller passes each
+    # point's distance from its own sweep's ego origin instead.
+    if distance is None:
+        distance = np.linalg.norm(ego_points, axis=1)
+    distance = distance[in_bounds]
 
     num_cells = grid_size * grid_size
     cell_id = rows * grid_size + cols
@@ -136,3 +151,46 @@ def build_raster(ego_points: np.array, colors: np.array, intensity: np.array,
         "intensity": intensity_channel,
         "extent": (-half_extent, half_extent, -half_extent, half_extent),
     }
+
+
+def merge_rasters(rasters: list[dict]) -> dict:
+    """Layer per-sweep rasters built on the same grid, newest first.
+
+    Each cell keeps every channel from the newest sweep that occupied it, so a
+    cell's height, intensity and color always come from one observation (the
+    same guarantee a single build_raster result gives). Older sweeps only fill
+    cells every newer sweep missed; they never overwrite or blend into one.
+    A cell won by a sweep that didn't color it stays uncolored, even if an
+    older sweep had a color there.
+
+    Args:
+        rasters: build_raster results for consecutive sweeps, newest (the
+            reference) first, all built with the same half_extent and
+            cell_size from points in the same (reference) ego frame.
+
+    Returns:
+        A dict with the same keys as build_raster's result, plus:
+          source (H, W) int -- index into rasters of the sweep each cell
+              came from, -1 where no sweep occupied it.
+
+    Raises:
+        ValueError: If the rasters aren't all on the same grid.
+    """
+    if any(raster["extent"] != rasters[0]["extent"] or
+           raster["occupied_mask"].shape != rasters[0]["occupied_mask"].shape for raster in rasters):
+        raise ValueError("merge_rasters needs every raster on the same grid (same half_extent and cell_size)")
+
+    # Copy so filling cells below doesn't modify the reference sweep's own raster.
+    merged = {key: (value.copy() if isinstance(value, np.ndarray) else value)
+              for key, value in rasters[0].items()}
+    merged["source"] = np.where(merged["occupied_mask"], 0, -1)
+
+    for index, older in enumerate(rasters[1:], start=1):
+        # Cells nothing newer has filled yet, that this older sweep did observe.
+        fill = ~merged["occupied_mask"] & older["occupied_mask"]
+        for channel in ("height", "intensity", "color", "colored_mask"):
+            merged[channel][fill] = older[channel][fill]
+        merged["source"][fill] = index
+        merged["occupied_mask"] |= fill
+
+    return merged

@@ -1,9 +1,9 @@
-"""Loads a sample's LIDAR_TOP point cloud and its lidar<->ego<->global transforms.
+"""Loads one LIDAR_TOP sweep's point cloud and its lidar<->ego<->global transforms.
 
-LidarProjection reads the raw .pcd file (points in the lidar sensor's own
+LidarProjection reads the raw .pcd.bin file (points in the lidar sensor's own
 frame) plus the lidar extrinsics and ego pose needed to express those points
 in the ego or global frame. Coloring the points from camera images -- the
-next step toward a BEV render -- lives in bev.render.GeometricBEVPipeline,
+next step toward a BEV render -- lives in bev.fusion.GeometricBEVPipeline,
 which builds on this class.
 """
 
@@ -18,8 +18,9 @@ from av_data_pipeline.ingestion_keys import *
 
 
 class LidarProjection:
-    """One sample's LIDAR_TOP point cloud, plus the rigid transforms needed to
-    express those points in the ego (vehicle) or global (world) frame.
+    """One LIDAR_TOP sweep's point cloud (a keyframe sample's, or any sweep in
+    between), plus the rigid transforms needed to express those points in the
+    ego (vehicle) or global (world) frame.
 
     Intensity is loaded alongside the xyz positions (self.intensity, indexed
     the same as the points) but never passed through a transform -- it's a
@@ -31,10 +32,11 @@ class LidarProjection:
         """Load the point cloud and build the lidar<->ego and ego<->global transforms.
 
         Args:
-            sensor_data: The sample's LIDAR_TOP sensor record, containing
+            sensor_data: This sweep's LIDAR_TOP sensor record (see
+                ingestion.extract_sensor_data_from_sample_data), containing
                 ego-pose rotation/translation (EP_ROTATION, EP_TRANSLATION),
                 lidar extrinsics (SC_EXT_ROTATION, SC_EXT_TRANSLATION), and
-                the .pcd file path (SD_FILEPATH).
+                the .pcd.bin file path (SD_FILEPATH).
         """
         # Rigid transform taking points from the ego (vehicle) frame to the global frame.
         self.T_ego_to_global = self.__build_transform_matrix(rotation=sensor_data[TRANSFORM_KEYS['ego_pose_rotation']],
@@ -55,14 +57,14 @@ class LidarProjection:
         self.intensity = raw_points[:, 3]
 
     def __extract_lidar_points_from_file(self, pcd_filepath: str) -> np.array:
-        """Load a LIDAR_TOP .pcd file's raw per-point rows, in the lidar sensor's own frame.
+        """Load a LIDAR_TOP .pcd.bin file's raw per-point rows, in the lidar sensor's own frame.
 
         nuScenes' LIDAR_TOP sweeps are stored as flat float32 binary files, one
         row of 5 values per point: x, y, z, intensity, ring index. Ring index
         isn't used anywhere in this pipeline, but intensity and xyz both are.
 
         Args:
-            pcd_filepath: Path to the .pcd file.
+            pcd_filepath: Path to the .pcd.bin file.
 
         Returns:
             Array of shape (N, 5): each point's raw (x, y, z, intensity, ring).
@@ -86,6 +88,16 @@ class LidarProjection:
         )
 
 
+    def get_lidar_intensity(self) -> np.array:
+        """Each point's return intensity (N,), indexed the same as the points."""
+        return self.intensity
+
+
+    def get_ego_to_global_transform(self) -> RigidTransform:
+        """The ego-to-global rigid transform: the vehicle's pose when this sweep was captured."""
+        return self.T_ego_to_global
+
+
     def lidar_to_ego(self) -> np.array:
         """Transform this sample's point cloud from the lidar sensor frame into the ego frame.
 
@@ -104,3 +116,21 @@ class LidarProjection:
         # Compose global<-ego and ego<-lidar to go lidar -> global.
         transform = self.T_ego_to_global * self.T_lidar_to_ego
         return transform.apply(self.lidar_points)
+
+
+    def global_to_ego(self, global_coordinates: np.array) -> np.array:
+        """Transform global-frame points into this sweep's ego frame.
+
+        Unlike the methods above, this takes points as an argument rather than
+        using this sweep's own: bev.multisweep uses it to bring other sweeps'
+        points into one reference sweep's ego frame.
+
+        Args:
+            global_coordinates: Points (N, 3) in the global frame.
+
+        Returns:
+            The same points (N, 3), expressed in the ego frame at the time
+            this sweep was captured.
+        """
+        # Compose global<-ego, then invert to go global -> ego.
+        return self.T_ego_to_global.apply(global_coordinates, inverse=True)

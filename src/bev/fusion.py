@@ -1,3 +1,10 @@
+"""Colours a LiDAR sweep from the camera images that see it, for the BEV views.
+
+GeometricBEVPipeline projects one LiDAR sweep's points into every camera
+(reusing av_data_pipeline.transform's validated projection chain), samples
+each point's colour from the first camera it lands on, and returns the points
+in the ego frame for rendering or rasterizing (bev.raster).
+"""
 
 import os
 
@@ -26,9 +33,10 @@ class GeometricBEVPipeline:
 
         Args:
             sample_data: Sample record containing a "CAMERA" mapping of sensor
-                records keyed by camera sample-data token, and a "LIDAR"
-                mapping (expected to hold exactly one entry, LIDAR_TOP --
-                nuScenes' only lidar channel) keyed the same way.
+                records keyed by channel name (any subset of the six cameras;
+                only the records themselves are used), and a "LIDAR" mapping
+                (expected to hold exactly one entry, LIDAR_TOP -- nuScenes'
+                only lidar channel) keyed the same way.
         """
         self.camera_pipelines = {}
         self.sample_camera_images = {}
@@ -46,19 +54,28 @@ class GeometricBEVPipeline:
             self.lidar_projection = LidarProjection(lidar_sensor_data)
 
 
+    def get_lidar_projection_pipeline(self) -> LidarProjection:
+        """The sample's LidarProjection (its points, intensity and transforms)."""
+        return self.lidar_projection
+
+
     def map_lidar_points_to_camera_canvas(self, camera_pipe: CameraTransformPipeline,
                                          lidar_points: np.array) -> tuple[np.array, np.array]:
         """Project global-frame lidar points onto one camera's pixel canvas.
 
-        Points behind that camera are dropped by camera_to_sensor, so the
-        returned array can have fewer rows than lidar_points.
+        Points behind that camera are dropped by camera_to_sensor, so both
+        returned arrays can have fewer rows than lidar_points.
 
         Args:
             camera_pipe: Transform pipeline for the camera to project onto.
             lidar_points: Lidar points (N, 3), in the global frame.
 
         Returns:
-            Array of 2D pixel coordinates for the points in front of the camera.
+            (canvas_coords, in_front_indices): canvas_coords (M, 2) is the
+            pixel coordinates of the M points in front of the camera, not yet
+            clipped to the canvas bounds (see clip_to_canvas); in_front_indices
+            (M,) is each of those points' row index into lidar_points, so
+            canvas_coords[i] belongs to lidar_points[in_front_indices[i]].
         """
         return camera_pipe.camera_to_sensor(camera_pipe.global_to_camera(lidar_points), get_mask=True)
 
@@ -73,8 +90,8 @@ class GeometricBEVPipeline:
             canvas_height: Camera canvas height in pixels.
 
         Returns:
-            Boolean mask (N,), intended to be True where a point's x is in
-            [0, canvas_width) AND its y is in [0, canvas_height).
+            Boolean mask (N,), True where a point's x is in [0, canvas_width)
+            AND its y is in [0, canvas_height).
         """
         return ((canvas_coords[:, 0] >= 0) & (canvas_coords[:, 0] < canvas_width)) & \
                     ((canvas_coords[:, 1] >= 0) & (canvas_coords[:, 1] < canvas_height))
@@ -101,9 +118,10 @@ class GeometricBEVPipeline:
         # canvas_coords/in_front_mask are already restricted to the points in
         # front of this camera, so they're shorter than lidar_points;
         # in_front_mask[i] is lidar_points' original row index for
-        # canvas_coords[i]. canvas_filter is relative to that same shorter
-        # array, so it has to be composed with in_front_mask (not used on its
-        # own) to know which rows of the full-length sampled_colors to write.
+        # canvas_coords[i] (integer indices, despite the name). canvas_filter
+        # is relative to that same shorter array, so it has to be composed with
+        # in_front_mask (not used on its own) to know which rows of the
+        # full-length sampled_colors to write.
         canvas_coords, in_front_mask = self.map_lidar_points_to_camera_canvas(camera_pipe, lidar_points)
         canvas_filter = self.clip_to_canvas(canvas_coords, camera_pipe.sensor_width, camera_pipe.sensor_height)
         original_indices = in_front_mask[canvas_filter]
@@ -126,7 +144,7 @@ class GeometricBEVPipeline:
 
         return sampled_colors
 
-    def project_to_bev(self) -> tuple[np.array, np.array]:
+    def project_to_bev(self, return_global_points: bool = False) -> tuple[np.array, ...]:
         """Color this sample's point cloud and express it in the ego frame for BEV plotting.
 
         Projects the lidar sweep (global frame) into every camera in turn,
@@ -134,11 +152,18 @@ class GeometricBEVPipeline:
         still uncolored (all -1) after a camera are tried against the next
         one, so later cameras only fill in points earlier ones missed.
 
+        Args:
+            return_global_points: If True, also return the points in the
+                global frame (used by bev.multisweep to bring several sweeps into
+                one reference frame).
+
         Returns:
             (ego_lidar_points, bev_colors): the sweep's points in the ego
             frame (N, 3), and their RGB colors (N, 3), still [-1, -1, -1]
             where no camera saw the point -- distinguishable from a genuinely
-            black pixel, which would be [0, 0, 0].
+            black pixel, which would be [0, 0, 0]. With
+            return_global_points=True, (global_lidar_points, ego_lidar_points,
+            bev_colors) instead, all indexed the same way.
         """
         global_lidar_points = self.lidar_projection.lidar_to_global()
 
@@ -155,19 +180,26 @@ class GeometricBEVPipeline:
 
         ego_lidar_points = self.lidar_projection.lidar_to_ego()
 
-        return ego_lidar_points, bev_colors
+        if return_global_points:
+            return global_lidar_points, ego_lidar_points, bev_colors
+        else:
+            return ego_lidar_points, bev_colors
 
 
-def project_scene_to_bev(scene_data: list[dict]) -> list[tuple[np.array, np.array]]:
+def project_scene_to_bev(scene_data: list[dict], return_global_points: bool = False) -> list[tuple[np.array, ...]]:
     """Color every sample's LiDAR sweep in a scene, for BEV rendering.
 
     Args:
         scene_data: One sample_data dict per sample in the scene (as built by
             av_data_pipeline.ingestion.build_scene_data), each containing a
             "CAMERA" and a "LIDAR" mapping.
+        return_global_points: Passed through to
+            GeometricBEVPipeline.project_to_bev.
 
     Returns:
-        One (ego_lidar_points, bev_colors) pair per sample, as returned by
-        GeometricBEVPipeline.project_to_bev, in scene order.
+        One tuple per sample, in scene order, as returned by
+        GeometricBEVPipeline.project_to_bev: (ego_lidar_points, bev_colors),
+        or (global_lidar_points, ego_lidar_points, bev_colors) with
+        return_global_points=True.
     """
-    return [GeometricBEVPipeline(sample_data).project_to_bev() for sample_data in scene_data]
+    return [GeometricBEVPipeline(sample_data).project_to_bev(return_global_points) for sample_data in scene_data]
