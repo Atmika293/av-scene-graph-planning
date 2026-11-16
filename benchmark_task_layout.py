@@ -207,7 +207,7 @@ def build_report(summary: dict[str, dict[int, dict]]) -> None:
     chart = build_bar_chart(summary, "work", "Time after the first task starts, by task layout")
 
     section_html = (
-        "<section id=\"task-layout-data\">\n"
+        "<section id=\"data\">\n"
         "<h2>Data: 2 vs. 4 Ray tasks per batch</h2>\n"
         "<h3>Time after startup</h3>\n"
         "<div class=\"chart-note\">Wall time minus startup overhead (interpreter, imports, "
