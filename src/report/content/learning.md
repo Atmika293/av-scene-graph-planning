@@ -1,5 +1,5 @@
 <!--
-DRAFT (Claude): the "Key ideas" and "What took longest to click" sections are
+DRAFT (Claude): the "What I took away" and "What took longest to click" sections are
 written in your voice from what the code shows you understood -- rewrite
 them in your own words; that's what makes this page worth reading. In
 particular, "What took longest to click" is a guess based on where the code
@@ -28,13 +28,16 @@ point becomes a pixel, and how to represent and compose 3D poses.
 - [Direct Linear Transform for Camera Calibration and Localization](https://www.youtube.com/watch?v=3NcQbZu6xt8)
 - [Intrinsic Camera Calibration – 5 Minutes with Cyrill](https://www.youtube.com/watch?v=26nV4oDLiqc)
 
-**SE(3) rigid-body transforms**: Lynch & Park, *Modern Robotics*,
-[Chapter 3](https://modernrobotics.northwestern.edu/chapters/chapter3/) (Northwestern)
+**Configuration space and SE(3) rigid-body transforms**: Lynch & Park, *Modern Robotics*
+(Northwestern)
+
+- [Chapter 2: Configuration Space](https://modernrobotics.northwestern.edu/chapters/chapter2/)
+- [Chapter 3: Rigid-Body Motions](https://modernrobotics.northwestern.edu/chapters/chapter3/)
 
 **Hands-on:** rotation and rigid-transform math in Python with
 [`scipy.spatial.transform`](https://docs.scipy.org/doc/scipy/reference/spatial.transform.html)
 
-### Key ideas
+### What I took away
 
 - **A camera is two transforms.** The extrinsics are a rigid-body transform (rotation +
   translation) taking a point into the camera's own frame; the intrinsics matrix \(K\) then
@@ -68,9 +71,13 @@ devkit's own intermediate output, is what made it manageable.
 
 ## Phase 2: Ingestion + fusion <span class="badge progress">In progress</span>
 
-Phase 2 is mostly building (see the [build log](build.html)); the learning here is the
-working references used along the way, plus a reading track on BEV *networks*, the learned
-counterpart to the geometric BEV built in this phase.
+Phase 2 is mostly building (see the [build log](build.html)): Ray-parallel ingestion, a
+geometric BEV fused from LiDAR and cameras, and a [multisweep](bev.html) version that
+accumulates the half second of sweeps before each keyframe. It also produced the first
+[experiment](experiment-ray-task-layout.html), which measured a Ray design decision I'd only
+reasoned about. The learning here is the working references used along the way, plus a
+reading track on BEV *networks*, the learned counterpart to the geometric BEV built in this
+phase.
 
 ### Working references
 
@@ -84,8 +91,11 @@ counterpart to the geometric BEV built in this phase.
   (especially [passing the same large argument by value](https://docs.ray.io/en/latest/ray-core/patterns/pass-large-arg-by-value.html)
   and [limiting pending tasks with `ray.wait`](https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html)),
   and [A Gentle Introduction to Ray Core by Example](https://docs.ray.io/en/latest/ray-core/examples/gentle_walkthrough.html)
+- The devkit's [`LidarPointCloud.from_file_multisweep`](https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/utils/data_classes.py)
+  (how nuScenes itself chains sweep poses; read for the approach, then used as the
+  independent reference in the [multisweep checks](validation.html#multisweep))
 
-### Key ideas
+### What I took away
 
 - **A Ray task runs in its own process, not a thread.** Nothing in the driver, not even an
   already-loaded `nusc`, is visible inside a task; only what's explicitly passed in (and
@@ -125,6 +135,22 @@ counterpart to the geometric BEV built in this phase.
   for real contrast across the data that matters. Remote-sensing imagery calls this a
   "percentile stretch."
 
+- **A pose belongs to an instant, not to the car.** "The ego frame" is really one frame per
+  timestamp: every sweep and every camera image has its own, wherever the car was when it was
+  taken. Accumulating sweeps means routing each one through the global frame into a single
+  reference instant, and even "nearest the sensor" has to be measured from where the LiDAR
+  was for *that* sweep, not from the reference.
+- **Merging observations is the averaging question again, across time.** When several sweeps
+  reach one cell, mixing their values would combine different moments (and, for moving
+  objects, different places). Taking each cell whole from the newest sweep keeps every channel
+  from one observation; the price is a visible one, cells left uncoloured when that sweep had
+  no camera frame close enough in time.
+- **A reasoned design argument is a hypothesis.** Merging Ray tasks "should" have cut
+  per-task overhead, and it did, but by at most {{stat:task_layout.diff_pct_max|.1%}}. A fair comparison needed more
+  than two runs: both layouts behind one switch so nothing else differs, runs interleaved with
+  the order alternated so slow drift lands on both, and a metric (time after startup) that
+  leaves out the cost both layouts share.
+
 ### Where it shows up
 
 - `partition.py`'s manifest pattern: each batch's scenes are resolved into a plain-dict
@@ -139,6 +165,16 @@ counterpart to the geometric BEV built in this phase.
   `raster_intensity_traces`/`scatter_3d_intensity_traces` clip the color scale at the 95th
   percentile of each sample's actual intensity values, rather than the sensor's theoretical
   0–255 range.
+- [`bev/multisweep.py`](https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py)'s
+  `project_window_to_bev` moves each sweep through the global frame into the keyframe's ego
+  frame and returns each point's distance from its *own* sweep's ego origin, which
+  `build_raster` uses to pick each cell's nearest point; `merge_rasters` in
+  [`bev/raster.py`](https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/raster.py)
+  then takes each cell whole from the newest sweep that reached it.
+- [`benchmark_task_layout.py`](https://github.com/Atmika293/av-scene-graph-planning/blob/main/benchmark_task_layout.py)
+  interleaves the two task layouts with alternating order and splits compute by task type
+  from the same runs; the write-up is the
+  [task-layout experiment](experiment-ray-task-layout.html).
 
 ### Reading: BEV networks
 
