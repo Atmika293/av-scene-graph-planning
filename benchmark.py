@@ -75,7 +75,7 @@ class CPUSampler:
         self._thread.join(timeout=self.interval + 1)
 
 
-def run_partition_once(worker_count: int, repeat: int) -> dict:
+def run_partition_once(worker_count: int, repeat: int, task_layout: str | None = None) -> dict:
     """Run partition.py once as a subprocess with NUM_CPUS=worker_count.
 
     BATCH_SIZE/MAX_IN_FLIGHT are overridden (to 1 and 32) so there are
@@ -87,9 +87,12 @@ def run_partition_once(worker_count: int, repeat: int) -> dict:
         worker_count: Value to set NUM_CPUS to for this run.
         repeat: Which repeat of this worker_count this is (0-indexed; only
             carried through into the result record, not used for behavior).
+        task_layout: TASK_LAYOUT to run partition.py with ("consolidated" or
+            "split"); None leaves it to config.toml/the environment. Used by
+            benchmark_task_layout.py to compare the two under this same harness.
 
     Returns:
-        One result record: worker_count, repeat, success, wall_time,
+        One result record: worker_count, repeat, task_layout, success, wall_time,
         startup_overhead (None if the run failed before any task started),
         task_timings (partition.py's own per-task breakdown), cpu_samples.
     """
@@ -97,6 +100,8 @@ def run_partition_once(worker_count: int, repeat: int) -> dict:
     env["NUM_CPUS"] = str(worker_count)
     env["BATCH_SIZE"] = "1"
     env["MAX_IN_FLIGHT"] = "32"
+    if task_layout is not None:
+        env["TASK_LAYOUT"] = task_layout
 
     # Stale from a previous run (or absent); either way, only this run's
     # fresh file -- written unconditionally by partition.py -- should count.
@@ -133,6 +138,7 @@ def run_partition_once(worker_count: int, repeat: int) -> dict:
     return {
         "worker_count": worker_count,
         "repeat": repeat,
+        "task_layout": task_layout,
         "success": success,
         "wall_time": wall_time,
         "startup_overhead": startup_overhead,

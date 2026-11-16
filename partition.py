@@ -4,18 +4,21 @@ Batches nusc.scene (BATCH_SIZE scenes per batch), builds each batch's
 aggregate scene data via av_data_pipeline.ingestion, then farms out two
 independent writing tasks per batch to Ray workers: the core
 sample/sample_data/sample_annotation tables (write_core_tables) and the
-projected 2D canvas bboxes (write_bboxes). Output lands under
+projected 2D canvas bboxes (write_bboxes). TASK_LAYOUT=split instead gives
+each core table its own task (write_core_table), for 4 tasks per batch; see
+benchmark_task_layout.py, which compares the two. Output lands under
 OUTPUT_ROOT/<table_name>/batch_<batch_id>.parquet.
 
 Run with: python partition.py (from the repo root, so config.toml and the
 relative NUSCENES_DATAROOT/OUTPUT_ROOT defaults resolve correctly).
 
 This driver's execution-strategy knobs -- BATCH_SIZE, MAX_IN_FLIGHT,
-NUM_CPUS -- live in config.toml's [partition] table alongside every other
+NUM_CPUS, TASK_LAYOUT -- live in config.toml's [partition] table alongside every other
 setting (see av_data_pipeline.config), overridable the same way:
     export BATCH_SIZE=1        # scenes aggregated into one manifest/batch
     export MAX_IN_FLIGHT=32    # cap on simultaneously in-flight Ray tasks
     export NUM_CPUS=4          # passed to ray.init(); unset = use all available
+    export TASK_LAYOUT=split   # 4 tasks per batch instead of 2 (consolidated)
 """
 
 import json
@@ -30,7 +33,7 @@ from nuscenes.nuscenes import NuScenes
 
 from av_data_pipeline.config import (
     NUSCENES_VERSION, NUSCENES_DATAROOT, OUTPUT_ROOT,
-    BATCH_SIZE, MAX_IN_FLIGHT, NUM_CPUS,
+    BATCH_SIZE, MAX_IN_FLIGHT, NUM_CPUS, TASK_LAYOUT,
 )
 from av_data_pipeline.ingestion import build_scene_data_from_scene_dict
 from av_data_pipeline.nuscenes import SCENE_TOKEN
@@ -158,6 +161,37 @@ def write_core_tables(batch_id: str, batch: dict[str, list], output_root: str) -
            "write_time": write_time, "ended_at": time.time()}
 
 
+CORE_TABLE_WRITERS = {
+    "samples": write_samples_table,
+    "sample_data": write_sample_data_table,
+    "sample_annotations": write_sample_annotations_table,
+}
+
+
+@ray.remote
+def write_core_table(table: str, batch_id: str, batch: dict[str, list], output_root: str) -> dict:
+    """Write one of a batch's core tables (TASK_LAYOUT=split).
+
+    Ray task: the split-layout counterpart of write_core_tables, writing just
+    1 of its 3 Parquet files, so each core table costs its own task.
+
+    Args:
+        table: Which core table to write (a key of CORE_TABLE_WRITERS).
+        batch_id: Identifier for this batch, used in the output filename.
+        batch: This batch's manifest (see build_manifest_for_batch).
+        output_root: Root directory to write under.
+
+    Returns:
+        Timing info for the benchmark harness -- see write_core_tables.
+    """
+    received_at = time.time()
+
+    write_time = CORE_TABLE_WRITERS[table](batch_id, batch, output_root)
+
+    return {"task": f"write_core_table[{table}]", "received_at": received_at,
+           "write_time": write_time, "ended_at": time.time()}
+
+
 @ray.remote
 def write_bboxes(batch_id: str, batch: dict[str, list], output_root: str) -> dict:
     """Project every annotation onto its cameras and write the clipped 2D boxes.
@@ -196,6 +230,8 @@ if __name__ == "__main__":
     # REPL/notebook) doesn't crash on an already-initialized Ray instance.
     # num_cpus=None (NUM_CPUS unset) lets Ray auto-detect all available cores,
     # matching ray.init()'s own default -- set NUM_CPUS to compare worker counts.
+    if TASK_LAYOUT not in ("consolidated", "split"):
+        sys.exit(f"TASK_LAYOUT must be 'consolidated' or 'split', not {TASK_LAYOUT!r}")
     ray.init(ignore_reinit_error=True, num_cpus=NUM_CPUS)
 
     all_refs, pending = [], []  # every ref submitted; refs not yet known-complete
@@ -208,15 +244,23 @@ if __name__ == "__main__":
         batch_id = generate_batch_id()
         batch_ref = ray.put(build_manifest_for_batch(nusc, scene_batch))  # once per batch
 
-        # Two independent write tasks per batch -- core tables and bboxes
-        # don't depend on each other's output, so they run as separate tasks.
+        # Independent write tasks per batch -- core tables and bboxes don't
+        # depend on each other's output, so they run as separate tasks: two
+        # (consolidated), or four with each core table split out (split).
         # time.time() (not perf_counter) since it's compared against each
         # task's own received_at, recorded in a different (worker) process.
         submitted_at = time.time()
-        refs = {
-            write_core_tables.remote(batch_id, batch_ref, output_root): f"batch {batch_id}: write_core_tables",
-            write_bboxes.remote(batch_id, batch_ref, output_root): f"batch {batch_id}: write_bboxes",
-        }
+        if TASK_LAYOUT == "split":
+            refs = {
+                write_core_table.remote(table, batch_id, batch_ref, output_root):
+                    f"batch {batch_id}: write_core_table[{table}]"
+                for table in CORE_TABLE_WRITERS
+            }
+        else:
+            refs = {
+                write_core_tables.remote(batch_id, batch_ref, output_root): f"batch {batch_id}: write_core_tables",
+            }
+        refs[write_bboxes.remote(batch_id, batch_ref, output_root)] = f"batch {batch_id}: write_bboxes"
         ref_label.update(refs)
         ref_submitted_at.update({ref: submitted_at for ref in refs})
         all_refs += refs.keys()

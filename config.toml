@@ -10,6 +10,10 @@ output_root = "data/output"
 [partition]
 batch_size = 5
 max_in_flight = 8
+# How each batch's writes are split into Ray tasks: "consolidated" (2 tasks:
+# all 3 core tables in one, bboxes in the other) or "split" (4 tasks: one per
+# output table). benchmark_task_layout.py compares the two.
+task_layout = "consolidated"
 # num_cpus intentionally omitted: unset means "let Ray auto-detect and use
 # all available cores" (ray.init()'s own default). Set NUM_CPUS to compare
 # worker counts -- the benchmark harness overrides this per run.

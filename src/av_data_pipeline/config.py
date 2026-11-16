@@ -2,7 +2,7 @@
 
 Every setting -- which dataset to read (NUSCENES_VERSION/NUSCENES_DATAROOT/
 OUTPUT_ROOT, shared by every entry point), partition.py's own
-execution-strategy knobs (BATCH_SIZE/MAX_IN_FLIGHT/NUM_CPUS), and the
+execution-strategy knobs (BATCH_SIZE/MAX_IN_FLIGHT/NUM_CPUS/TASK_LAYOUT), and the
 benchmark harness's settings (BENCHMARK_*) -- is defined once in config.toml
 at the repo root, deliberately outside this package: this module is a
 generic loader (TOML + env-var overrides), not itself environment-specific
@@ -50,6 +50,8 @@ BATCH_SIZE = _get("partition", "batch_size", "BATCH_SIZE", cast=int)
 MAX_IN_FLIGHT = _get("partition", "max_in_flight", "MAX_IN_FLIGHT", cast=int)
 # None means "let Ray auto-detect and use all available cores" (ray.init()'s own default).
 NUM_CPUS = _get("partition", "num_cpus", "NUM_CPUS", cast=int, default=None)
+# "consolidated" (2 tasks per batch) or "split" (4 tasks per batch, one per output table).
+TASK_LAYOUT = _get("partition", "task_layout", "TASK_LAYOUT", default="consolidated")
 
 BENCHMARK_WORKER_COUNTS = _get("benchmark", "worker_counts", "BENCHMARK_WORKER_COUNTS",
                                cast=lambda s: [int(x) for x in s.split(",")])
