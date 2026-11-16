@@ -21,7 +21,7 @@ states an explanation nothing had measured.
 
 **Protocol.** The four-task layout was reconstructed as a config switch
 (`task_layout = "split"` in `config.toml`); every other code path is shared. Both layouts ran
-through the same harness as the [main benchmark](results.html#performance): same subprocess
+through the same harness as the [main benchmark](result-ray-scaling.html): same subprocess
 isolation, batch size, in-flight cap and worker counts ({{stat:task_layout.worker_counts}}),
 {{stat:task_layout.repeats}} repeats each. The two layouts' runs were interleaved, with the
 order swapped on every repeat, so slow drift (heat, background load) lands on both equally.

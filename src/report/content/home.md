@@ -36,7 +36,7 @@ validated, with the interactive views published. **Reading:** Lift-Splat-Shoot, 
 of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 
 <div class="stats">
-<a class="stat" href="results.html#performance"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></a>
+<a class="stat" href="result-ray-scaling.html"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></a>
 <a class="stat" href="bev.html"><img class="thumb" src="bev_thumbnail.png" alt="Top-down view of LiDAR points coloured by camera, with annotated boxes"><div class="label">LiDAR + camera fusion in bird's-eye view: explore the interactive views</div></a>
 </div>
 
@@ -47,7 +47,7 @@ of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 <a class="card" href="build.html"><strong>Build log</strong><span>Each milestone: goal, approach, how I checked it, what I learned.</span></a>
 <a class="card" href="experiments.html"><strong>Experiments</strong><span>Decisions first made on reasoning, revisited and measured, with the results whichever way they went.</span></a>
 <a class="card" href="validation.html"><strong>Validation</strong><span>The chain of checks behind every stage, each against an independent reference, with its latest result.</span></a>
-<a class="card" href="results.html"><strong>Results</strong><span>Ray scaling benchmark and projection-accuracy analysis.</span></a>
+<a class="card" href="results.html"><strong>Results</strong><span>Measurements of the pipeline as built: Ray scaling and projection accuracy, each on its own page.</span></a>
 <a class="card" href="bev.html"><strong>BEV fusion</strong><span>Interactive top-down and 3D views of LiDAR + camera fusion, with annotated boxes.</span></a>
 <a class="card" href="roadmap.html"><strong>Roadmap</strong><span>The seven-phase plan, the optional extensions, and where this project is in it.</span></a>
 </div>

@@ -331,8 +331,8 @@ def build_gallery_html(selected: list[dict]) -> str:
     # (a bare 1fr won't, which pushed the page wider than a phone screen).
     return (
         "<div style=\"display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap:24px;\">\n"
-        f"<div><h4>Worst 5 (lowest IOU)</h4>{worst_cards}</div>\n"
-        f"<div><h4>Best 5 (highest IOU)</h4>{best_cards}</div>\n"
+        f"<div><h3>Worst 5 (lowest IOU)</h3>{worst_cards}</div>\n"
+        f"<div><h3>Best 5 (highest IOU)</h3>{best_cards}</div>\n"
         "</div>"
     )
 
@@ -394,13 +394,13 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
          "projection logic itself."),
     ]
     chart_html = "\n".join(
-        f"<h3>{heading}</h3>\n<p class=\"chart-note\">{note}</p>\n" +
+        f"<h2>{heading}</h2>\n<p class=\"chart-note\">{note}</p>\n" +
         fig.to_html(full_html=False, include_plotlyjs="cdn" if i == 0 else False)
         for i, (heading, fig, note) in enumerate(charts)
     )
 
     reference_html = (
-        "<p class=\"chart-note\"><strong>Where the reference boxes come from.</strong> "
+        "<h2>Where the reference boxes come from</h2>\n<p class=\"chart-note\">"
         "nuScenes has no separately hand-labelled 2D boxes. Its devkit derives them from "
         "the 3D annotations with <code>export_2d_annotations_as_json.py</code>, which "
         "projects each 3D box into every camera that sees it and clips the result to the "
@@ -414,7 +414,7 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
     )
 
     iou_formula_html = (
-        "<p class=\"chart-note\">Every chart below is built on IOU "
+        "<h2>How IOU is measured</h2>\n<p class=\"chart-note\">Every chart below is built on IOU "
         "(intersection-over-union) between our computed 2D bbox and the nuScenes "
         "reference bbox: \\[\\text{IOU} = \\frac{|\\text{Our box} \\cap "
         "\\text{Reference box}|}{|\\text{Our box} \\cup \\text{Reference box}|}\\] "
@@ -427,12 +427,11 @@ def build_report(records: list[dict], selected: list[dict]) -> None:
     section_html = (
         "<section id=\"correctness\">\n"
         f"{KATEX_CDN_HTML}\n"
-        "<h2>Correctness: projection accuracy vs. reference</h2>\n"
         f"{build_stats_grid_html(records)}\n"
         f"{reference_html}\n"
         f"{iou_formula_html}\n"
         f"{chart_html}\n"
-        "<h3>Sample localizations</h3>\n"
+        "<h2>Sample localizations</h2>\n"
         "<p class=\"chart-note\">10 annotation/camera pairs rendered with both boxes "
         "drawn (red: ours, green: reference): the 5 lowest-IOU and 5 highest-IOU "
         "pairs among eligible (non-degenerate) boxes, each deduplicated by physical "

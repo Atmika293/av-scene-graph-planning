@@ -64,7 +64,7 @@ That's why the table check uses its own re-indexer rather than the code it's che
 it would have hidden exactly these bugs.
 
 ## 3 · Projection: global → ego → camera → pixel <span class="badge done">Done</span> {: #projection }
-{{dates: src/av_scene_graph_planning/transform.py scripts/export_2d_annotations_debug.py scripts/validation/export_2d_annotations_debug.py scripts/evaluate_projections.py scripts/validation/evaluate_projections.py scripts/visualize_projections.py scripts/viz/visualize_projections.py scripts/build_correctness_report.py scripts/report/build_correctness_report.py}} · [checks](validation.html#projection) · [analysis](results.html#correctness)
+{{dates: src/av_scene_graph_planning/transform.py scripts/export_2d_annotations_debug.py scripts/validation/export_2d_annotations_debug.py scripts/evaluate_projections.py scripts/validation/evaluate_projections.py scripts/visualize_projections.py scripts/viz/visualize_projections.py scripts/build_correctness_report.py scripts/report/build_correctness_report.py}} · [checks](validation.html#projection) · [analysis](result-projection-accuracy.html)
 {: .meta }
 <div class="tags"><span class="tag">SE(3) / SciPy</span> <span class="tag">Computer vision</span></div>
 
@@ -91,7 +91,7 @@ minimum-area cutoff for the image gallery is a setting (`config.toml`), not a co
 ## 4 · Ray-parallelized ingestion <span class="badge done">Done</span> {: #ray }
 <!-- Hand-dated: later feat: commits to partition.py/benchmark.py (the task-layout
 experiment, see experiments.md) aren't part of this milestone. -->
-Oct 9 – Nov 1, 2026 · [benchmark](results.html#performance)
+Oct 9 – Nov 1, 2026 · [benchmark](result-ray-scaling.html)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Performance benchmarking</span></div>
 
@@ -197,7 +197,7 @@ never where the time went. The full write-up is on the new
   worth measuring.
 
 ## 7 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
-Not yet started · [benchmark](results.html#performance)
+Not yet started · [benchmark](result-ray-scaling.html)
 {: .meta }
 
 **Goal.** Find out whether the parallelism measured on `v1.0-mini`

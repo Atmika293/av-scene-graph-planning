@@ -1,6 +1,6 @@
-# Ingestion & projection results
+# Results
 
-Two quantitative results from Phase 2: how ingestion scales under Ray, and how accurately the
-projection chain reproduces nuScenes' reference boxes. The [build log](build.html) has the
-story behind each; the [validation page](validation.html) has the full set of checks.
+Measurements of the pipeline as built, each on its own page with its charts and how it was
+measured. Questions that revisit a decision are in [Experiments](experiments.html); the
+pass/fail checks behind every stage are on the [validation page](validation.html).
 {: .lede }

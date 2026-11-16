@@ -31,7 +31,7 @@ import os
 import re
 from typing import Callable, NamedTuple
 
-from report import experiments, validation
+from report import experiments, results, validation
 from report.html import KATEX_CDN_HTML, page_shell
 from report.markup import render_markdown
 
@@ -52,7 +52,7 @@ class Section(NamedTuple):
 class Page(NamedTuple):
     """One published page: its output file, nav label, <title>, and sections in order.
 
-    A page with a parent (an Experiments article) is left out of the site-wide
+    A page with a parent (an Experiments article or a Results page) is left out of the site-wide
     nav, which highlights its parent page instead while it's open.
     """
     filename: str
@@ -86,11 +86,14 @@ PAGES = [
         Section("checks", "Checks", render=validation.render),
         Section("validation-notes", "Design notes", content="validation_notes.md", intro=True),
     ]),
-    Page("results.html", "Results", "Ingestion & projection results · AV Perception", [
+    Page("results.html", "Results", "Results · AV Perception", [
         Section("results-intro", "About", content="results.md", intro=True),
-        Section("performance", "Performance", fragment=os.path.join(REPORT_DIR, "_performance_section.html")),
-        Section("correctness", "Correctness", fragment=os.path.join(REPORT_DIR, "_correctness_section.html")),
+        Section("results-index", "Results", render=results.render_index),
     ]),
+    *[Page(result.filename, result.title, f"{result.title} · Results · AV Perception", [
+        Section("about", "About", content=result.content, intro=True),
+        Section(result.anchor, "Data", fragment=os.path.join(REPORT_DIR, result.fragment)),
+    ], parent="results.html") for result in results.RESULTS],
     Page("bev.html", "BEV", "Bird's-eye-view fusion · AV Perception", [
         Section("bev-intro", "About", content="bev.md", intro=True),
         Section("bev", "Views", fragment=os.path.join(REPORT_DIR, "_bev_section.html")),

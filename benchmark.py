@@ -257,7 +257,7 @@ def build_breakdown_observations_html(by_worker_count: dict[int, dict]) -> str:
     startups = [by_worker_count[wc]["mean_startup_overhead"] for wc in by_worker_count]
     lo, hi = min(startups), max(startups)
     return (
-        "<h4>Observations</h4>"
+        "<h3>Observations</h3>"
         f"<div class=\"chart-note\">Startup overhead stays within roughly "
         f"\\([{lo:.1f}, {hi:.1f}]\\) seconds across every worker count tested here. "
         "That's expected: it's the cost of interpreter startup, imports, "
@@ -328,7 +328,7 @@ def build_speedup_observations_html(by_worker_count: dict[int, dict]) -> str:
     else:
         text += " Speedup kept improving through the largest worker count tested here."
 
-    return f"<h4>Observations</h4><div class=\"chart-note\">{text}</div>"
+    return f"<h3>Observations</h3><div class=\"chart-note\">{text}</div>"
 
 
 def build_cpu_utilization_chart(by_worker_count: dict[int, dict]) -> go.Figure:
@@ -370,7 +370,7 @@ def build_cpu_observations_html(by_worker_count: dict[int, dict]) -> str:
         text += ("Rising utilization with worker count is expected: more workers means more cores doing "
                 "work simultaneously, up to the point where it saturates the machine's available cores.")
 
-    return f"<h4>Observations</h4><div class=\"chart-note\">{text}</div>"
+    return f"<h3>Observations</h3><div class=\"chart-note\">{text}</div>"
 
 
 def build_time_distribution_chart(by_worker_count: dict[int, dict]) -> go.Figure:
@@ -410,7 +410,7 @@ def build_wait_observations_html(by_worker_count: dict[int, dict]) -> str:
     hi_waits = by_worker_count[hi_wc]["all_wait_times"]
 
     return (
-        "<h4>Observations</h4>"
+        "<h3>Observations</h3>"
         f"<div class=\"chart-note\">Average wait time drops from "
         f"{statistics.mean(lo_waits):.2f}s at {lo_wc} worker(s) to "
         f"{statistics.mean(hi_waits):.2f}s at {hi_wc}, and its spread (stdev) narrows from "
@@ -431,7 +431,7 @@ def build_summary_table_html(by_worker_count: dict[int, dict]) -> str:
         for wc in sorted(by_worker_count)
     )
     formula_note = (
-        "<div class=\"chart-note\">Mean wall time is the average measured subprocess "
+        "<h2>Wall time by worker count</h2>\n<div class=\"chart-note\">Mean wall time is the average measured subprocess "
         "duration across every successful repeat at that worker count: "
         "\\[\\bar{x} = \\frac{1}{n}\\sum_{i=1}^{n} x_i\\] "
         "Stdev is the sample standard deviation of the same values (0 if fewer than "
@@ -508,7 +508,7 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
          build_wait_observations_html(by_worker_count)),
     ]
     chart_html = "\n".join(
-        f"<h3>{heading}</h3>\n<div class=\"chart-note\">{note}</div>\n" +
+        f"<h2>{heading}</h2>\n<div class=\"chart-note\">{note}</div>\n" +
         fig.to_html(full_html=False, include_plotlyjs="cdn" if i == 0 else False) +
         (observations or "")
         for i, (heading, fig, note, observations) in enumerate(charts)
@@ -517,7 +517,6 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
     section_html = (
         "<section id=\"performance\">\n"
         f"{KATEX_CDN_HTML}\n"
-        "<h2>Performance: Ray worker-count benchmark</h2>\n"
         f"{build_summary_table_html(by_worker_count)}\n"
         f"{chart_html}\n"
         "</section>\n"
