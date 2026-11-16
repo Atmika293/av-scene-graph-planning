@@ -130,7 +130,7 @@ imports, `ray.init()`, loading the devkit's tables), which no number of workers 
   per task without adding real parallel compute. Consolidating them into one task, alongside
   the bbox task, is why there are two tasks per batch, not four. Measured later, the
   difference is at most {{stat:task_layout.diff_pct_max|.1%}}:
-  [Experiments](experiments.html#ray-task-layout).
+  [Experiments](experiment-ray-task-layout.html).
 
 ## 5 · Geometric BEV fusion <span class="badge done">Done</span> {: #bev }
 Nov 1 – Nov 4, 2026 · [checks](validation.html#bev) · [interactive views](bev.html)
@@ -166,7 +166,7 @@ the raster against a deliberately naive reimplementation.
   categories get their own colour and the rest share one.
 
 ## 6 · Experiments: measuring a decision I'd only reasoned about <span class="badge done">Done</span> {: #experiments }
-{{dates: benchmark_task_layout.py}} · [experiment](experiments.html#ray-task-layout)
+{{dates: benchmark_task_layout.py}} · [experiment](experiment-ray-task-layout.html)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Experiment design</span></div>
 

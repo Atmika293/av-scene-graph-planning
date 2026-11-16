@@ -31,7 +31,7 @@ import os
 import re
 from typing import Callable, NamedTuple
 
-from report import validation
+from report import experiments, validation
 from report.html import KATEX_CDN_HTML, page_shell
 from report.markup import render_markdown
 
@@ -50,11 +50,16 @@ class Section(NamedTuple):
 
 
 class Page(NamedTuple):
-    """One published page: its output file, nav label, <title>, and sections in order."""
+    """One published page: its output file, nav label, <title>, and sections in order.
+
+    A page with a parent (an Experiments article) is left out of the site-wide
+    nav, which highlights its parent page instead while it's open.
+    """
     filename: str
     label: str
     title: str
     sections: list[Section]
+    parent: str | None = None  # filename of the nav page this one sits under
 
 
 PAGES = [
@@ -69,9 +74,13 @@ PAGES = [
     ]),
     Page("experiments.html", "Experiments", "Experiments · AV Perception", [
         Section("experiments-intro", "About", content="experiments.md", intro=True),
-        Section("task-layout", "Ray task layout", content="experiments_task_layout.md"),
-        Section("task-layout-data", "Data", fragment=os.path.join(REPORT_DIR, "_task_layout_section.html")),
+        Section("experiments-index", "Articles", render=experiments.render_index),
     ]),
+    *[Page(experiment.filename, experiment.title, f"{experiment.title} · Experiments · AV Perception", [
+        Section("article", "Article", content=experiment.content),
+        *([Section("data", "Data", fragment=os.path.join(REPORT_DIR, experiment.fragment))]
+          if experiment.fragment else []),
+    ], parent="experiments.html") for experiment in experiments.EXPERIMENTS],
     Page("validation.html", "Validation", "Validation · AV Perception", [
         Section("validation-intro", "Approach", content="validation.md", intro=True),
         Section("checks", "Checks", render=validation.render),
@@ -152,9 +161,9 @@ def build_page(page: Page, sections: list[tuple[Section, str]], built_pages: lis
     plotlyjs_script = extract_plotlyjs_script(sections_html)
 
     page_nav = " ".join(
-        f'<a href="{p.filename}" aria-current="page">{p.label}</a>' if p == page
+        f'<a href="{p.filename}" aria-current="page">{p.label}</a>' if p.filename in (page.filename, page.parent)
         else f'<a href="{p.filename}">{p.label}</a>'
-        for p in built_pages
+        for p in built_pages if p.parent is None
     )
     section_nav = ""
     if len(sections) > 1:
