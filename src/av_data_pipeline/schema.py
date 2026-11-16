@@ -7,8 +7,10 @@ Two related but distinct things live here:
    name to where its value lives in an aggregate/sensor/annotation dict —
    either an aggregate key constant directly, or an (aggregate key, index)
    tuple for a single component of a vector/matrix field (e.g. one element of
-   a quaternion or camera-intrinsic matrix). table.py's construct_table_row
-   uses these to flatten a nested dict into one table row.
+   a quaternion or camera-intrinsic matrix), or '' for a column the caller
+   fills in itself (e.g. sample_token). utils.construct_table_row uses these
+   (via table.py's build_*_row functions) to flatten a nested dict into one
+   table row.
 
 2. The *_schema pyarrow schemas describe those same flat tables' column names
    and types for table.py's write_batch_table_to_file to validate against and

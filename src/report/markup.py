@@ -38,6 +38,7 @@ MARKDOWN_EXTENSIONS = ["tables", "attr_list", "md_in_html", "fenced_code", "toc"
 
 
 def _stat(arg: str) -> str:
+    """Expand one {{stat:dotted.path|format}} directive."""
     path, _, spec = arg.partition("|")
     value = all_stats()
     for key in path.split("."):
@@ -50,6 +51,7 @@ def _stat(arg: str) -> str:
 
 
 def _format_range(first: date, last: date) -> str:
+    """Format a date range compactly: "Sep 11, 2026", "Sep 11 – Nov 1, 2026", or with both years."""
     if first == last:
         return f"{first:%b} {first.day}, {first.year}"
     if first.year == last.year:
@@ -58,6 +60,7 @@ def _format_range(first: date, last: date) -> str:
 
 
 def _dates(arg: str) -> str:
+    """Expand one {{dates:path ...}} directive into the date range of its feat:/fix: commits."""
     paths = arg.split()
     if not paths:
         raise SystemExit("{{dates:}} needs at least one path")
@@ -74,6 +77,7 @@ def _dates(arg: str) -> str:
 def expand_directives(text: str) -> str:
     """Replace every {{stat:...}}/{{dates:...}} directive with its value."""
     def replace(match: re.Match) -> str:
+        """One directive's replacement text."""
         kind, arg = match.groups()
         return _stat(arg) if kind == "stat" else _dates(arg)
     return DIRECTIVE_RE.sub(replace, text)

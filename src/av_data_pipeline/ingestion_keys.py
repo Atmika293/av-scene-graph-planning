@@ -9,14 +9,18 @@ Two layers of mapping live here:
    schema.py) reference "the token field" generically instead of hardcoding a
    different constant per record type.
 
-2. The *_KEY_MAPS dicts (EGO_POSE_KEY_MAPS, SENSOR_DATA_KEY_MAPS, SENSOR_CALIBRATION_KEY_MAPS,
-   SAMPLE_ANNOTATION_KEY_MAPS) map those aggregate key constants to the raw
-   nuScenes record field names. These are consumed by
-   utils.extract_key_values to build the column-mapped dicts ingestion.py
-   produces.
+2. The *_KEYS_MAP dicts (EGO_POSE_KEYS_MAP, SENSOR_DATA_KEYS_MAP,
+   SENSOR_CALIBRATION_KEYS_MAP, SAMPLE_ANNOTATION_KEYS_MAP) map those
+   aggregate key constants to the raw nuScenes record field names. These are
+   consumed by utils.extract_key_values to build the column-mapped dicts
+   ingestion.py produces. An empty field name means the value has no source
+   field to copy (it's filled in separately by the caller).
 
-KNOWN_SENSOR_MODALITIES/KNOWN_SENSOR_CHANNELS enumerate the valid values
-ingestion.py checks extracted sensor readings against.
+TRANSFORM_KEYS names the pose/calibration/size fields the geometry code
+(transform.py, bev/) reads, and SENSOR_MODALITY_KEYS the modality keys a
+sample's sensor data is filed under. KNOWN_SENSOR_MODALITIES/
+KNOWN_SENSOR_CHANNELS enumerate the valid values ingestion.py checks extracted
+sensor readings against.
 """
 
 # Aggregate key constant that holds each record type's own token/timestamp/etc,
@@ -118,7 +122,7 @@ SAMPLE_ANNOTATION_KEYS_MAP = {
 }
 
 
-# Modalities ingestion.py accepts; anything else trips its validation guard.
+# Modalities ingestion.py accepts; a sensor reading with any other modality is skipped.
 KNOWN_SENSOR_MODALITIES = {
     "CAMERA", "RADAR", "LIDAR"
 }

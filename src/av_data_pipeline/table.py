@@ -59,7 +59,7 @@ def build_sample_annotation_row(sample_token: str, annotation_data: dict) -> dic
             ingestion.extract_annotation_from_sample_data).
 
     Returns:
-        A flat row dict per schema.SAMPLE_DATA_COLUMNS, with 'sample_token' set.
+        A flat row dict per schema.SAMPLE_ANNOTATION_COLUMNS, with 'sample_token' set.
     """
     row = construct_table_row(annotation_data, SAMPLE_ANNOTATION_COLUMNS)
     row['sample_token'] = sample_token
@@ -96,8 +96,8 @@ def write_batch_table_to_file(batch_id: str, table_name: str, table_rows: list[d
 
     Args:
         batch_id: Identifier for this batch, used in the output filename.
-        table_name: Table this batch belongs to (e.g. 'sample'); used as the
-            output subdirectory name.
+        table_name: Table this batch belongs to (e.g. SAMPLES_TABLE_NAME,
+            'samples'); used as the output subdirectory name.
         table_rows: Row dicts to write, matching table_schema's columns.
         table_schema: pyarrow schema the rows are validated/written against.
         output_root: Root directory rows are written under, as
@@ -136,8 +136,9 @@ def extract_sample_rows(scene_data: list[dict]) -> list[dict]:
 def extract_sample_data_rows(scene_data: list[dict]) -> list[dict]:
     """Build sample_data-table rows for every sensor reading in a scene.
 
-    Iterates every known modality/channel combination for each sample, so
-    only sensors present under sample_data[modality][channel] are picked up.
+    Iterates every known modality/channel combination (cameras, lidar and
+    radar) for each sample, so every one of them must be present under
+    sample_data[modality][channel]; a missing sensor raises KeyError.
 
     Args:
         scene_data: One aggregate dict per sample in the scene.
@@ -176,8 +177,19 @@ def extract_sample_annotations_rows(scene_data: list[dict]) -> list[dict]:
 
     return rows
 
-    
+
 def collate_canvas_bboxes(canvas_projections: list[dict]) -> list[dict]:
+    """Flatten per-sample projected boxes into canvas_bboxes-table rows.
+
+    Args:
+        canvas_projections: One dict per sample, as returned by
+            transform.SampleTransformPipeline.project_to_canvas: annotation
+            token -> camera sample_data token -> [xmin, ymin, xmax, ymax].
+
+    Returns:
+        One canvas_bboxes-table row per (annotation, camera) pair whose box
+        landed on that camera's canvas.
+    """
     rows = []
 
     for canvas_bboxes in canvas_projections:

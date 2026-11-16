@@ -1,6 +1,6 @@
 """Projects a sample's annotated 3D boxes from the global frame into the ego frame.
 
-For each annotation with LiDAR support in a sample, SampleTransformPipeline
+For each annotation with LiDAR support in a sample, SampleBoxProjection
 builds a SampleAnnotation (av_data_pipeline.transform) for its global-frame
 box corners, then uses the sample's own ego pose (from its LIDAR_TOP sensor
 record) to express those corners in the ego frame -- the same frame

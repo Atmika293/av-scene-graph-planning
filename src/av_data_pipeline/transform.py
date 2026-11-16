@@ -1,4 +1,4 @@
-"""Geometry pipeline for projecting 3D scene-graph annotations into camera image space.
+"""Geometry pipeline for projecting 3D annotations into camera image space.
 
 Given per-sample sensor calibration (ego pose + camera extrinsics/intrinsics) and
 3D bounding-box annotations in the global (world) frame, this module chains the
@@ -80,11 +80,15 @@ class CameraTransformPipeline:
         Points behind the camera (non-positive depth) are discarded before projection.
 
         Args:
-            camera_coords: Array of 3D points expressed in the camera frame.
+            camera_coords: Array of 3D points (N, 3) expressed in the camera frame.
+            get_mask: If True, also return which input rows survived the
+                in-front-of-camera filter.
 
         Returns:
-            Array of 2D points in sensor (pixel) coordinates for the points in front
-            of the camera.
+            Array (M, 2) of 2D points in sensor (pixel) coordinates for the M
+            points in front of the camera. With get_mask=True, a tuple of that
+            array and an (M,) array of each point's row index into
+            camera_coords (integer indices, not a boolean mask).
         """
         # Keep only points in front of the camera (positive depth along the optical axis).
         in_front = np.argwhere(camera_coords[:, 2] > 0).flatten()
@@ -263,6 +267,16 @@ class SampleTransformPipeline:
 
 
 def project_scene_annotations_to_canvas(scene_data: list[dict]) -> list[dict]:
+    """Project every LiDAR-supported annotation in a scene onto every camera's canvas.
+
+    Args:
+        scene_data: One aggregate dict per sample in the scene (see
+            ingestion.build_scene_data).
+
+    Returns:
+        One dict per sample, in scene order, as returned by
+        SampleTransformPipeline.project_to_canvas.
+    """
     canvas_projections = []
 
     for sample_data in scene_data:
