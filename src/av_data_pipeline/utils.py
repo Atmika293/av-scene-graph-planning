@@ -1,5 +1,14 @@
+"""Small helpers shared by the ingestion and table-building code.
+
+Timestamp-skew arithmetic, the nuScenes visibility-token lookup, and the
+generic key-mapping functions that copy fields out of nuScenes records
+(extract_key_values) and flatten aggregate dicts into table rows
+(construct_table_row) using the maps in ingestion_keys.py and schema.py.
+"""
+
 import math
 
+# nuScenes visibility_token -> (min%, max%) range of the annotation that's visible across all cameras.
 VISIBILITY_RANGES = {
     '1': [0, 40],
     '2': [40, 60],
@@ -7,19 +16,38 @@ VISIBILITY_RANGES = {
     '4': [80, 100],
 }
 
-# Get skew of sample data timestamp from sample timestamp
 def calculate_timestamp_skew_ms(sample_ts, sample_data_ts):
-    # sample_ts and sample_data_ts are in microseconds (UNIX timestamp)
-    # dividing by 1000 gives the difference in milliseconds
+    """Absolute skew between a sample's timestamp and one sensor reading's, in milliseconds.
+
+    Args:
+        sample_ts: The sample (keyframe) timestamp, in microseconds (UNIX time).
+        sample_data_ts: The sensor reading's timestamp, in microseconds.
+
+    Returns:
+        |sample_data_ts - sample_ts| / 1000.
+    """
     return math.fabs(sample_data_ts - sample_ts) / 1000
 
-# Get the visibility range for a sample annotation
+def calculate_timestamp_skew_us(sample_ts, sample_data_ts):
+    """Same as calculate_timestamp_skew_ms, but left in microseconds."""
+    return math.fabs(sample_data_ts - sample_ts)
+
 def visibility_range(token: str) -> list[int, int]:
     """Map a sample_annotation visibility_token to its (min%, max%) range."""
     return VISIBILITY_RANGES[token]
 
-# Extract the key from the record and assign it to the aggregate key
 def extract_key_values(extract_dict: dict, record, keys_map: dict[str, str]):
+    """Copy fields from a raw nuScenes record into an aggregate dict, renaming them.
+
+    Args:
+        extract_dict: The aggregate dict to add fields to (modified in place).
+        record: A raw nuScenes record (e.g. from nusc.get).
+        keys_map: Aggregate key -> raw record field name (an ingestion_keys
+            *_KEYS_MAP). Entries with an empty field name are skipped.
+
+    Returns:
+        extract_dict, for chaining.
+    """
     for col, key in keys_map.items():
         if len(key) > 0: # Check if the key is not empty
             extract_dict[col] = record[key]
@@ -27,6 +55,15 @@ def extract_key_values(extract_dict: dict, record, keys_map: dict[str, str]):
     return extract_dict
 
 def multiindex(obj: object, multi_index: tuple):
+    """Index into nested containers one key/index at a time (obj[a][b]...).
+
+    Args:
+        obj: The outermost container.
+        multi_index: Keys/indices to apply in order, e.g. (SC_INTRINSIC, 0, 2).
+
+    Returns:
+        The value at that path, or None if any level along the way is None or empty.
+    """
     for idx in multi_index:
         if obj is None or len(obj) == 0:
             return None
@@ -36,6 +73,17 @@ def multiindex(obj: object, multi_index: tuple):
     return obj
 
 def construct_table_row(record: dict, columns_map: dict):
+    """Flatten one aggregate dict into a table row using a schema.py *_COLUMNS map.
+
+    Args:
+        record: An aggregate dict (sample, sensor, or annotation).
+        columns_map: Output column -> aggregate key, (key, index, ...) tuple
+            for one component of a vector/matrix field, or '' for a column
+            the caller fills in itself.
+
+    Returns:
+        One row dict with every column in columns_map; '' columns are None.
+    """
     row = {}
     for col, key in columns_map.items():
         if len(key) > 0:

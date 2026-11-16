@@ -25,9 +25,13 @@ SAMPLE_DATA_TOKENS = 'data'
 SAMPLE_TIMESTAMP = 'timestamp'
 SAMPLE_ANNOTATION_TOKENS = 'anns'
 
-# Sample Data Table: foreign keys into the ego_pose and calibrated_sensor tables.
+# Sample Data Table: foreign keys into the ego_pose and calibrated_sensor
+# tables, the reading's capture timestamp, and the tokens of the same
+# sensor's next/previous reading (keyframe or not), for walking its sweeps.
 EGO_POSE_TOKEN = 'ego_pose_token'
 CALIBRATED_SENSOR_TOKEN = 'calibrated_sensor_token'
-
+SAMPLE_DATA_TIMESTAMP = 'timestamp'
+NEXT_SAMPLE_DATA = 'next'
+PREVIOUS_SAMPLE_DATA = 'prev'
 
 
