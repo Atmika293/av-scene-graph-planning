@@ -16,6 +16,14 @@ computed. The remaining design-spec views (height-colored scatter,
 3D-by-RGB, 3D-by-intensity) aren't here yet: each gets its own reports/
 validation first, same as the others did, before joining this page.
 
+Multisweep: a "Sweeps" menu switches the same viewer between the keyframe's
+own sweep and a merged window of it plus the sweeps before it
+(bev.multisweep, checked by check_multisweep.py and check_camera_matching.py;
+see multisweep_bev_data). So both modes show the same moment, each scene's
+sample is the window's reference keyframe, not the scene's first sample
+(which has no earlier sweeps). Multisweep mode offers raster views only,
+plus a source-sweep-age raster, since a window has ~10x the points.
+
 Data loading: switching VIEW is instant and client-side, since a sample's
 JSON carries every view's data together -- only switching SAMPLE triggers a
 fetch (docs/bev_data/<token>.json, a relative path that works the same
@@ -36,10 +44,11 @@ go.Image's default the same way an explicit autorange=True did).
 
 Box footprints (SampleBoxProjection, already validated by
 check_box_containment.py's N_LIDAR_PTS count match) are overlaid on both
-views as closed-loop outlines, colored by category -- CATEGORY_COLORS maps
-the 6 most frequent categories across these samples to hand-tuned, vivid
-colors verified with the dataviz skill's validator (see CATEGORY_COLORS'
-own comment for how), folding rarer categories into a shared neutral
+views as closed-loop outlines, colored by category -- the 6 most frequent
+categories across these samples, counted at build time
+(assign_category_colors), get CATEGORY_PALETTE's hand-tuned, vivid colors,
+verified with the dataviz skill's validator (see CATEGORY_PALETTE's own
+comment for how), folding rarer categories into a shared neutral
 "Other" (OTHER_CATEGORY_COLOR), since 9-10 simultaneously visible
 categories exceeds what any CVD-safe categorical scheme supports at once --
 confirmed empirically (an 8th slot consistently broke validation regardless
@@ -52,16 +61,18 @@ after ingesting/having local access to the configured nuScenes dataset).
 
 import json
 import os
+from collections import Counter
 
 import numpy as np
 import plotly.graph_objects as go
 from nuscenes.nuscenes import NuScenes
 
 from av_data_pipeline.config import NUSCENES_VERSION, NUSCENES_DATAROOT
-from av_data_pipeline.ingestion import build_scene_data
+from av_data_pipeline.ingestion import extract_sample_data_from_sample
 from av_data_pipeline.ingestion_keys import SAMPLE_INGESTION_KEYS, SAMPLE_ANNOTATION_INGESTION_KEYS
 from bev.fusion import GeometricBEVPipeline
-from bev.raster import build_raster, to_plot_xy
+from bev.multisweep import WINDOW_LENGTH, assemble_window, project_window_to_bev
+from bev.raster import build_raster, merge_rasters, to_plot_xy
 from bev.sample import SampleBoxProjection
 
 REPORT_DIR = "docs"
@@ -93,32 +104,52 @@ RASTER_UNCOLORED_COLOR = UNCOVERED_COLOR_RGB  # occupied but no camera coverage 
 # convention as scripts/viz/render_bev.py's FOOTPRINT_CORNER_ORDER. Repeating
 # index 0 closes the loop for plotting.
 FOOTPRINT_CORNER_ORDER = [0, 2, 4, 6, 0]
-# Top 6 categories by frequency across these 3 samples get dedicated,
-# deliberately vivid colors -- not the project's validated categorical
+# Six colour slots for box categories, given in this order to the 6 most
+# frequent categories across the page's samples, counted at build time
+# (assign_category_colors), so the list follows the samples when they change.
+# Deliberately vivid colors -- not the project's validated categorical
 # palette's own (muted) values, by request. Hand-tuned per-hue and verified
 # with the dataviz skill's validator (scripts/validate_palette.js) against
 # UNCOVERED_COLOR (blue) and each other, --pairs all (every box is visible
-# simultaneously, not sequentially): confirmed PASS at 7 slots (blue + these
-# 6), where hue alone kept failing CVD/normal-vision floors no matter which
-# 7 hues were tried -- what closed the gap was widening the LIGHTNESS gap
-# between same-family colors (movable_object.barrier/vehicle.truck share a
-# green-teal hue family; vehicle.bus.rigid sits near blue/trafficcone's
-# purple-magenta family), since CVD collapses hue discrimination but not
-# lightness. A 7th slot (vehicle.bicycle) was tried repeatedly and
-# consistently broke validation regardless of placement -- 8 simultaneous
-# colors is the confirmed practical ceiling, so it stays folded into
-# OTHER_CATEGORY_COLOR along with the other rare categories.
-CATEGORY_COLORS = {
-    "human.pedestrian.adult": "#e10e20",
-    "movable_object.barrier": "#20b691",
-    "vehicle.car": "#f2930d",
-    "movable_object.trafficcone": "#7e0f95",
-    "vehicle.truck": "#0b8447",
-    "vehicle.bus.rigid": "#d788ca",
+# simultaneously, not sequentially): PASS at 7 slots (blue + these 6), with
+# the worst CVD pair in the 6-8 band, legal because the legend names every
+# category. What made 7 pass was widening the LIGHTNESS gap between
+# same-family colors, since CVD collapses hue discrimination but not
+# lightness. A 7th category slot consistently broke validation regardless of
+# placement, so everything past the top 6 folds into OTHER_CATEGORY_COLOR.
+CATEGORY_PALETTE = ["#f2930d", "#e10e20", "#20b691", "#7e0f95", "#0b8447", "#d788ca"]
+# Plain-English names for nuScenes' 23 annotation categories, for the page's
+# box-colour list (the legend keeps the dataset's own names).
+CATEGORY_READABLE_NAMES = {
+    "animal": "Animal",
+    "human.pedestrian.adult": "Adult pedestrian",
+    "human.pedestrian.child": "Child pedestrian",
+    "human.pedestrian.construction_worker": "Construction worker",
+    "human.pedestrian.personal_mobility": "Person on a scooter, skateboard, etc.",
+    "human.pedestrian.police_officer": "Police officer",
+    "human.pedestrian.stroller": "Stroller",
+    "human.pedestrian.wheelchair": "Wheelchair",
+    "movable_object.barrier": "Barrier",
+    "movable_object.debris": "Debris",
+    "movable_object.pushable_pullable": "Cart, trolley or bin",
+    "movable_object.trafficcone": "Traffic cone",
+    "static_object.bicycle_rack": "Bicycle rack",
+    "vehicle.bicycle": "Bicycle",
+    "vehicle.bus.bendy": "Articulated bus",
+    "vehicle.bus.rigid": "Bus",
+    "vehicle.car": "Car",
+    "vehicle.construction": "Construction vehicle",
+    "vehicle.emergency.ambulance": "Ambulance",
+    "vehicle.emergency.police": "Police car",
+    "vehicle.motorcycle": "Motorcycle",
+    "vehicle.trailer": "Trailer",
+    "vehicle.truck": "Truck",
 }
+# Category -> colour, filled by assign_category_colors() before anything is drawn.
+CATEGORY_COLORS: dict[str, str] = {}
 # Not a muted gray: that has the exact same blend-with-photographic-colors
 # problem UNCOVERED_COLOR was chosen to avoid. All 8 validated categorical
-# slots are already spoken for (blue + the 7 categories above), so this
+# slots are already spoken for (blue + the 6 category slots above), so this
 # reuses the palette's own primary ink instead of inventing an ungoverned
 # 9th hue -- near-black is about as rare in muted camera photography as
 # saturated blue is, for the same reason.
@@ -167,7 +198,7 @@ def sample_bev_data(sample_data: dict) -> dict:
 
     Args:
         sample_data: One sample's sample_data dict (as built by
-            av_data_pipeline.ingestion.build_scene_data).
+            av_data_pipeline.ingestion.extract_sample_data_from_sample).
 
     Returns:
         A dict with "scatter" ({"colored": {x, y, color}, "uncovered": {x, y}}),
@@ -222,6 +253,18 @@ def sample_bev_data(sample_data: dict) -> dict:
         })
 
     raster = build_raster(ego_points, colors, intensity, GRID_HALF_EXTENT_METERS, CELL_SIZE_METERS)
+    return {"scatter": scatter, "raster": raster_payload(raster), "boxes": boxes}
+
+
+def raster_payload(raster: dict) -> dict:
+    """A build_raster/merge_rasters result as JSON-ready display data: RGB image, height, intensity.
+
+    Args:
+        raster: The raster to display.
+
+    Returns:
+        {z (display RGB), x0, y0, dx, dy, height, intensity}, ready to embed as JSON.
+    """
     # Flatten raster's three-way occupied/colored/uncolored distinction into
     # two flat RGB fallbacks (empty cells blend into the page background,
     # occupied-but-uncolored cells read as a visible gray) -- simpler than
@@ -231,7 +274,7 @@ def sample_bev_data(sample_data: dict) -> dict:
         np.where(raster["occupied_mask"][:, :, None], RASTER_UNCOLORED_COLOR, RASTER_EMPTY_COLOR)
     ).astype(np.uint8)
     left, right, bottom, top = raster["extent"]
-    raster_payload = {
+    return {
         "z": display_color.tolist(),
         "x0": left,
         "y0": bottom,
@@ -244,7 +287,47 @@ def sample_bev_data(sample_data: dict) -> dict:
         "intensity": nan_grid_to_json(raster["intensity"], decimals=1),
     }
 
-    return {"scatter": scatter, "raster": raster_payload, "boxes": boxes}
+
+def multisweep_bev_data(nusc: NuScenes, sweep_tokens: list[str], camera_groups: dict) -> dict:
+    """Build the merged multisweep raster for one window, ready for JSON + Plotly.
+
+    Each sweep is coloured by its own nearest cameras and rasterized on the
+    same grid as the single-sweep view, then merged newest first
+    (bev.raster.merge_rasters), all checked by check_multisweep.py and
+    check_camera_matching.py. Only raster data: a window has ~10x a sweep's
+    points, too many to ship as per-point scatter data, while a raster is
+    the same size however many sweeps feed it.
+
+    Args:
+        nusc: NuScenes devkit instance.
+        sweep_tokens: The window's LIDAR_TOP tokens, newest (the reference keyframe) first.
+        camera_groups: Sweep token -> {camera channel: matched camera token}
+            (see bev.multisweep.assemble_window).
+
+    Returns:
+        {"raster": raster_payload(merged) plus "age" (ms before the reference
+        sweep that each cell's data came from, None where empty),
+        "sweeps": window length, "span_ms": oldest sweep's age,
+        "occupied_gain": merged occupied cells / the reference sweep's alone}.
+    """
+    sweeps = project_window_to_bev(nusc, sweep_tokens, camera_groups)
+    rasters = [build_raster(sweep["points"], sweep["colors"], sweep["intensity"],
+                            GRID_HALF_EXTENT_METERS, CELL_SIZE_METERS, distance=sweep["distance"])
+               for sweep in sweeps]
+    merged = merge_rasters(rasters)
+
+    timestamps = [nusc.get("sample_data", token)["timestamp"] for token in sweep_tokens]
+    ages_ms = np.array([(timestamps[0] - timestamp) / 1000 for timestamp in timestamps])
+    age = np.where(merged["source"] >= 0, ages_ms[np.maximum(merged["source"], 0)], np.nan)
+
+    payload = raster_payload(merged)
+    payload["age"] = nan_grid_to_json(age, decimals=0)
+    return {
+        "raster": payload,
+        "sweeps": len(sweeps),
+        "span_ms": round(float(ages_ms[-1])),
+        "occupied_gain": round(float(merged["occupied_mask"].sum() / max(rasters[0]["occupied_mask"].sum(), 1)), 2),
+    }
 
 
 def bev_layout() -> dict:
@@ -449,6 +532,21 @@ def box_traces(data: dict) -> list:
     return traces
 
 
+def assign_category_colors(samples: list[dict]) -> list[str]:
+    """Give CATEGORY_PALETTE's slots to the most frequent box categories across the samples.
+
+    Ties break alphabetically so the assignment is stable between builds.
+    Fills CATEGORY_COLORS in place (box_traces, write_thumbnail and the
+    page's JS all read it) and returns the chosen categories, most frequent first.
+    """
+    counts = Counter(box["category"] for sample in samples for box in sample["data"]["boxes"])
+    ranked = sorted(counts, key=lambda category: (-counts[category], category))
+    chosen = ranked[:len(CATEGORY_PALETTE)]
+    CATEGORY_COLORS.clear()
+    CATEGORY_COLORS.update(zip(chosen, CATEGORY_PALETTE))
+    return chosen
+
+
 def write_thumbnail(data: dict, path: str) -> None:
     """Render a small, axis-free version of the scatter view (points + box footprints) as a PNG."""
     import matplotlib
@@ -478,10 +576,15 @@ if __name__ == "__main__":
 
     samples = []
     for scene in nusc.scene[:NUM_SCENES]:
-        sample_data = build_scene_data(nusc, scene["token"])[0]
-        sample_token = sample_data[SAMPLE_INGESTION_KEYS['token']]
+        # The multisweep window's reference keyframe, so both Sweeps modes
+        # show the same moment, ego frame and boxes (a scene's first sample
+        # has no earlier sweeps to accumulate).
+        sweep_tokens, camera_groups = assemble_window(nusc, scene["token"])
+        sample_token = nusc.get("sample_data", sweep_tokens[0])["sample_token"]
+        sample_data = extract_sample_data_from_sample(nusc, sample_token)
 
         data = sample_bev_data(sample_data)
+        data["multisweep"] = multisweep_bev_data(nusc, sweep_tokens, camera_groups)
         out_path = os.path.join(DATA_DIR, f"{sample_token}.json")
         with open(out_path, "w") as outfile:
             json.dump(data, outfile)
@@ -490,6 +593,12 @@ if __name__ == "__main__":
 
         samples.append({"token": sample_token, "scene_name": scene["name"], "data": data})
 
+    colored_categories = assign_category_colors(samples)
+    category_items = "\n".join(
+        f'<li><span style="display:inline-block;width:0.9em;height:0.9em;border-radius:2px;'
+        f'vertical-align:-0.1em;margin-right:6px;background:{CATEGORY_COLORS[category]}"></span>'
+        f'{CATEGORY_READABLE_NAMES.get(category, category)} ({category})</li>'
+        for category in colored_categories)
     default_sample = samples[0]
     write_thumbnail(default_sample["data"], THUMBNAIL_FILE)
     print(f"Wrote {THUMBNAIL_FILE}")
@@ -516,8 +625,16 @@ See <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/
 and its validation in <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_raster.py">check_raster.py</a>.
 Blue marks lidar returns no camera covered; empty/white cells had no lidar return at all.
 Annotation box footprints (<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/sample.py">bev/sample.py</a>)
-are overlaid in each category's own color, per the legend; the 6 most common categories across these
-samples get a dedicated color, rarer ones share a neutral "Other".</p>
+are overlaid in each category's own color, per the legend.</p>
+<p class="chart-note"><strong>Sweeps.</strong> "1" shows the keyframe's own LiDAR sweep. "Multisweep"
+adds the sweeps just before it, each coloured by the camera frames nearest to it in time and moved
+into the keyframe's ego frame, then merges them on the same grid: each cell keeps the newest sweep that
+reached it (<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py">bev/multisweep.py</a>,
+checked in the <a href="validation.html#multisweep">multisweep checks</a>). Boxes are the keyframe's,
+so anything that moved during the window leaves a trail behind its box. Blue bands can appear where
+the newest sweep to reach a cell had no camera frame close enough in time for that direction: the merge
+keeps that sweep's point rather than an older, coloured one. Multisweep has raster views
+only, plus "source sweep age": how long before the keyframe each cell's data was captured.</p>
 <div style="margin:12px 0;">
 <label>View: <select id="bev-view-select">
 <option value="raster" selected>Raster (color)</option>
@@ -526,12 +643,19 @@ samples get a dedicated color, rarer ones share a neutral "Other".</p>
 <option value="raster_intensity">Raster (intensity)</option>
 <option value="scatter_3d">Scatter 3D (color)</option>
 <option value="scatter_3d_intensity">Scatter 3D (intensity)</option>
+<option value="raster_age" disabled>Raster (source sweep age)</option>
+</select></label>
+&nbsp;&nbsp;
+<label>Sweeps: <select id="bev-sweeps-select">
+<option value="single" selected>1 (keyframe)</option>
+<option value="multi">Multisweep</option>
 </select></label>
 &nbsp;&nbsp;
 <label>Sample: <select id="bev-sample-select">
 {sample_options}
 </select></label>
 </div>
+<p class="chart-note" id="bev-caption"></p>
 {initial_html}
 <script>
 (function() {{
@@ -580,7 +704,7 @@ samples get a dedicated color, rarer ones share a neutral "Other".</p>
   // whether or not a camera saw it, so there's no blue region to explain.
   function rasterHeightTraces(data) {{
     var r = data.raster;
-    var colorbar = Object.assign({{title: "height (m)"}}, COLORBAR_POSITION);
+    var colorbar = Object.assign({{title: {{text: "height (m)"}}}}, COLORBAR_POSITION);
     return [{{type: "heatmap", z: r.height, x0: r.x0, y0: r.y0, dx: r.dx, dy: r.dy,
               colorscale: "Viridis", colorbar: colorbar}}];
   }}
@@ -600,12 +724,18 @@ samples get a dedicated color, rarer ones share a neutral "Other".</p>
   }}
   function rasterIntensityTraces(data) {{
     var r = data.raster;
-    var colorbar = Object.assign({{title: "intensity"}}, COLORBAR_POSITION);
+    var colorbar = Object.assign({{title: {{text: "intensity"}}}}, COLORBAR_POSITION);
     // Clips at the 95th percentile rather than the real max -- see
     // raster_intensity_traces' docstring (build_bev_report.py) for why.
     var zmax = gridPercentile(r.intensity, 95);
     return [{{type: "heatmap", z: r.intensity, x0: r.x0, y0: r.y0, dx: r.dx, dy: r.dy,
               colorscale: "Viridis", zmin: 0, zmax: zmax, colorbar: colorbar}}];
+  }}
+  function rasterAgeTraces(data) {{
+    var r = data.raster;
+    var colorbar = Object.assign({{title: {{text: "ms before keyframe"}}}}, COLORBAR_POSITION);
+    return [{{type: "heatmap", z: r.age, x0: r.x0, y0: r.y0, dx: r.dx, dy: r.dy,
+              colorscale: "Viridis", reversescale: true, zmin: 0, colorbar: colorbar}}];
   }}
   function boxTraces(data) {{
     var seen = {{}};
@@ -636,7 +766,7 @@ samples get a dedicated color, rarer ones share a neutral "Other".</p>
   }}
   function scatter3dIntensityTraces(data) {{
     var i = data.scatter.intensity;
-    var colorbar = Object.assign({{title: "intensity"}}, COLORBAR_POSITION);
+    var colorbar = Object.assign({{title: {{text: "intensity"}}}}, COLORBAR_POSITION);
     var zmax = percentileOf(i.value, 95);
     return [{{x: i.x, y: i.y, z: i.z, mode: "markers", type: "scatter3d",
               marker: {{size: 2, color: i.value, colorscale: "Viridis", cmin: 0, cmax: zmax,
@@ -649,32 +779,102 @@ samples get a dedicated color, rarer ones share a neutral "Other".</p>
     raster_height: rasterHeightTraces,
     raster_intensity: rasterIntensityTraces,
     scatter_3d: scatter3dTraces,
-    scatter_3d_intensity: scatter3dIntensityTraces
+    scatter_3d_intensity: scatter3dIntensityTraces,
+    raster_age: rasterAgeTraces
   }};
-  var VIEWS_WITH_BOXES = {{raster: true, scatter: true, raster_height: true, raster_intensity: true}};
+  var VIEWS_WITH_BOXES = {{raster: true, scatter: true, raster_height: true, raster_intensity: true,
+                          raster_age: true}};
+  // Multisweep ships raster data only (see multisweep_bev_data), and source
+  // age only means something when there's more than one sweep.
+  var VIEWS_BY_SWEEPS = {{
+    single: ["raster", "scatter", "raster_height", "raster_intensity", "scatter_3d", "scatter_3d_intensity"],
+    multi: ["raster", "raster_height", "raster_intensity", "raster_age"]
+  }};
 
-  function bevRender(data, view) {{
+  // Multisweep mode swaps in the merged raster; boxes stay the keyframe's.
+  function sweepsData(data, sweeps) {{
+    return sweeps === "multi" ? {{raster: data.multisweep.raster, boxes: data.boxes}} : data;
+  }}
+  function caption(data, sweeps) {{
+    if (sweeps !== "multi") return "";
+    var m = data.multisweep;
+    return m.sweeps + " sweeps over the " + m.span_ms + " ms before the keyframe: " +
+           m.occupied_gain.toFixed(2) + "\u00d7 the occupied cells of the keyframe sweep alone.";
+  }}
+  function syncViewOptions(sweeps) {{
+    var select = document.getElementById("bev-view-select");
+    var allowed = VIEWS_BY_SWEEPS[sweeps];
+    for (var i = 0; i < select.options.length; i++) {{
+      select.options[i].disabled = allowed.indexOf(select.options[i].value) < 0;
+    }}
+    if (allowed.indexOf(select.value) < 0) select.value = "raster";
+  }}
+
+  function bevRender(data, view, sweeps) {{
+    document.getElementById("bev-caption").textContent = caption(data, sweeps);
+    data = sweepsData(data, sweeps);
     var baseTraces = VIEW_TRACE_BUILDERS[view](data);
     var traces = VIEWS_WITH_BOXES[view] ? baseTraces.concat(boxTraces(data)) : baseTraces;
     Plotly.react("bev-chart", traces, BEV_LAYOUT);
   }}
 
   function bevOnChange() {{
+    var sweeps = document.getElementById("bev-sweeps-select").value;
+    syncViewOptions(sweeps);
     var view = document.getElementById("bev-view-select").value;
     var token = document.getElementById("bev-sample-select").value;
     if (BEV_DATA_CACHE[token]) {{
-      bevRender(BEV_DATA_CACHE[token], view);
+      bevRender(BEV_DATA_CACHE[token], view, sweeps);
     }} else {{
       fetch("bev_data/" + token + ".json")
         .then(function(resp) {{ return resp.json(); }})
-        .then(function(data) {{ BEV_DATA_CACHE[token] = data; bevRender(data, view); }});
+        .then(function(data) {{ BEV_DATA_CACHE[token] = data; bevRender(data, view, sweeps); }});
     }}
   }}
+  document.getElementById("bev-sweeps-select").addEventListener("change", bevOnChange);
 
   document.getElementById("bev-view-select").addEventListener("change", bevOnChange);
   document.getElementById("bev-sample-select").addEventListener("change", bevOnChange);
 }})();
 </script>
+<div class="chart-note">
+<h3>What each view shows</h3>
+<p>All views are in the keyframe's ego frame. The 2D ones are top-down, the car at
+the origin facing up the chart, within {GRID_HALF_EXTENT_METERS:.0f} m of it on each side.</p>
+<ul>
+<li><strong>Raster (color):</strong> the points binned into a grid of {CELL_SIZE_METERS} m cells. Each
+cell shows the camera colour of the point nearest the sensor that landed in it, so it reads like a
+top-down photo. Blue cells had LiDAR returns but no camera view; white cells had no return.
+Box footprints are drawn on top.</li>
+<li><strong>Scatter (color):</strong> every LiDAR point plotted on its own, with the same camera colours
+and boxes. Nothing is merged into cells, so it shows the true point density: dense near the car,
+sparse rings further out.</li>
+<li><strong>Raster (height):</strong> the same grid, coloured by the height in metres of each cell's
+nearest point, measured from the ego frame's origin near road level. The road is flat and dark;
+cars, walls and vegetation stand out brighter.</li>
+<li><strong>Raster (intensity):</strong> the same grid, coloured by how strongly the surface reflected
+the laser. Lane paint, signs and number plates are typically bright, asphalt dark. The scale stops short of
+the few brightest cells so they don't flatten the rest.</li>
+<li><strong>Scatter 3D (color)</strong> and <strong>Scatter 3D (intensity):</strong> every point at its
+real height, with camera colour or intensity; drag to rotate. Boxes aren't drawn here, because
+they are flat footprints. Single sweep only: the 3D views plot every point, and a multisweep window
+has about {WINDOW_LENGTH} times as many, which would make each sample's download several times larger
+and the 3D view slow to rotate. The rasters stay the same size however many sweeps feed them,
+so multisweep offers rasters only.</li>
+<li><strong>Raster (source sweep age):</strong> multisweep only. How many milliseconds before the
+keyframe each cell's point was captured: the keyframe's own sweep is 0, older sweeps are larger.
+It shows which gaps in the keyframe's own sweep the older sweeps filled.</li>
+</ul>
+<h3>Box colours</h3>
+<p>The {len(colored_categories)} most frequent categories across these
+samples, counted each time the page is built, get their own colour:</p>
+<ul>
+{category_items}
+</ul>
+<p>The colours were checked to stay distinguishable from each other and from the blue "no camera
+coverage", including for colour-blind viewers. More colours failed that check, so every other
+category is drawn in near-black, though each still gets its own legend entry.</p>
+</div>
 </section>
 """
 
