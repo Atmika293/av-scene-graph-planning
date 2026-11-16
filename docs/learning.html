@@ -170,11 +170,15 @@ point becomes a pixel, and how to represent and compose 3D poses.</p>
 <li><a href="https://www.youtube.com/watch?v=3NcQbZu6xt8">Direct Linear Transform for Camera Calibration and Localization</a></li>
 <li><a href="https://www.youtube.com/watch?v=26nV4oDLiqc">Intrinsic Camera Calibration – 5 Minutes with Cyrill</a></li>
 </ul>
-<p><strong>SE(3) rigid-body transforms</strong>: Lynch &amp; Park, <em>Modern Robotics</em>,
-<a href="https://modernrobotics.northwestern.edu/chapters/chapter3/">Chapter 3</a> (Northwestern)</p>
+<p><strong>Configuration space and SE(3) rigid-body transforms</strong>: Lynch &amp; Park, <em>Modern Robotics</em>
+(Northwestern)</p>
+<ul>
+<li><a href="https://modernrobotics.northwestern.edu/chapters/chapter2/">Chapter 2: Configuration Space</a></li>
+<li><a href="https://modernrobotics.northwestern.edu/chapters/chapter3/">Chapter 3: Rigid-Body Motions</a></li>
+</ul>
 <p><strong>Hands-on:</strong> rotation and rigid-transform math in Python with
 <a href="https://docs.scipy.org/doc/scipy/reference/spatial.transform.html"><code>scipy.spatial.transform</code></a></p>
-<h3 id="key-ideas">Key ideas</h3>
+<h3 id="what-i-took-away">What I took away</h3>
 <ul>
 <li><strong>A camera is two transforms.</strong> The extrinsics are a rigid-body transform (rotation +
   translation) taking a point into the camera's own frame; the intrinsics matrix (K) then
@@ -205,9 +209,13 @@ point becomes a pixel, and how to represent and compose 3D poses.</p>
 "<em>A</em>-in-<em>B</em>" for every pose, and checking each stage of the chain separately against the
 devkit's own intermediate output, is what made it manageable.</p>
 <h2 id="phase-2-ingestion-fusion-in-progress">Phase 2: Ingestion + fusion <span class="badge progress">In progress</span></h2>
-<p>Phase 2 is mostly building (see the <a href="build.html">build log</a>); the learning here is the
-working references used along the way, plus a reading track on BEV <em>networks</em>, the learned
-counterpart to the geometric BEV built in this phase.</p>
+<p>Phase 2 is mostly building (see the <a href="build.html">build log</a>): Ray-parallel ingestion, a
+geometric BEV fused from LiDAR and cameras, and a <a href="bev.html">multisweep</a> version that
+accumulates the half second of sweeps before each keyframe. It also produced the first
+<a href="experiment-ray-task-layout.html">experiment</a>, which measured a Ray design decision I'd only
+reasoned about. The learning here is the working references used along the way, plus a
+reading track on BEV <em>networks</em>, the learned counterpart to the geometric BEV built in this
+phase.</p>
 <h3 id="working-references">Working references</h3>
 <ul>
 <li><a href="https://github.com/nutonomy/nuscenes-devkit"><code>nuscenes-devkit</code> tutorial</a> and the
@@ -220,8 +228,11 @@ counterpart to the geometric BEV built in this phase.</p>
   (especially <a href="https://docs.ray.io/en/latest/ray-core/patterns/pass-large-arg-by-value.html">passing the same large argument by value</a>
   and <a href="https://docs.ray.io/en/latest/ray-core/patterns/limit-pending-tasks.html">limiting pending tasks with <code>ray.wait</code></a>),
   and <a href="https://docs.ray.io/en/latest/ray-core/examples/gentle_walkthrough.html">A Gentle Introduction to Ray Core by Example</a></li>
+<li>The devkit's <a href="https://github.com/nutonomy/nuscenes-devkit/blob/master/python-sdk/nuscenes/utils/data_classes.py"><code>LidarPointCloud.from_file_multisweep</code></a>
+  (how nuScenes itself chains sweep poses; read for the approach, then used as the
+  independent reference in the <a href="validation.html#multisweep">multisweep checks</a>)</li>
 </ul>
-<h3 id="key-ideas_1">Key ideas</h3>
+<h3 id="what-i-took-away_1">What I took away</h3>
 <ul>
 <li><strong>A Ray task runs in its own process, not a thread.</strong> Nothing in the driver, not even an
   already-loaded <code>nusc</code>, is visible inside a task; only what's explicitly passed in (and
@@ -258,13 +269,32 @@ counterpart to the geometric BEV built in this phase.</p>
   the actual returns, which of those two situations was really happening before deciding
   whether to average at all.</p>
 </li>
-<li><strong>A color scale is a choice, not a given.</strong> Mapping a skewed, long-tailed value (lidar
+<li>
+<p><strong>A color scale is a choice, not a given.</strong> Mapping a skewed, long-tailed value (lidar
   intensity here) onto a fixed range by its literal min/max lets a handful of rare outliers
   dictate the whole scale, compressing the typical values (the ones that actually carry the
   scene's structure) into a narrow, almost-indistinguishable band. Clipping at a percentile
   instead (letting the rare extremes simply saturate) trades fine detail among the outliers
   for real contrast across the data that matters. Remote-sensing imagery calls this a
-  "percentile stretch."</li>
+  "percentile stretch."</p>
+</li>
+<li>
+<p><strong>A pose belongs to an instant, not to the car.</strong> "The ego frame" is really one frame per
+  timestamp: every sweep and every camera image has its own, wherever the car was when it was
+  taken. Accumulating sweeps means routing each one through the global frame into a single
+  reference instant, and even "nearest the sensor" has to be measured from where the LiDAR
+  was for <em>that</em> sweep, not from the reference.</p>
+</li>
+<li><strong>Merging observations is the averaging question again, across time.</strong> When several sweeps
+  reach one cell, mixing their values would combine different moments (and, for moving
+  objects, different places). Taking each cell whole from the newest sweep keeps every channel
+  from one observation; the price is a visible one, cells left uncoloured when that sweep had
+  no camera frame close enough in time.</li>
+<li><strong>A reasoned design argument is a hypothesis.</strong> Merging Ray tasks "should" have cut
+  per-task overhead, and it did, but by at most 1.4%. A fair comparison needed more
+  than two runs: both layouts behind one switch so nothing else differs, runs interleaved with
+  the order alternated so slow drift lands on both, and a metric (time after startup) that
+  leaves out the cost both layouts share.</li>
 </ul>
 <h3 id="where-it-shows-up_1">Where it shows up</h3>
 <ul>
@@ -280,6 +310,16 @@ counterpart to the geometric BEV built in this phase.</p>
   <code>raster_intensity_traces</code>/<code>scatter_3d_intensity_traces</code> clip the color scale at the 95th
   percentile of each sample's actual intensity values, rather than the sensor's theoretical
   0–255 range.</li>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py"><code>bev/multisweep.py</code></a>'s
+  <code>project_window_to_bev</code> moves each sweep through the global frame into the keyframe's ego
+  frame and returns each point's distance from its <em>own</em> sweep's ego origin, which
+  <code>build_raster</code> uses to pick each cell's nearest point; <code>merge_rasters</code> in
+  <a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/raster.py"><code>bev/raster.py</code></a>
+  then takes each cell whole from the newest sweep that reached it.</li>
+<li><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/benchmark_task_layout.py"><code>benchmark_task_layout.py</code></a>
+  interleaves the two task layouts with alternating order and splits compute by task type
+  from the same runs; the write-up is the
+  <a href="experiment-ray-task-layout.html">task-layout experiment</a>.</li>
 </ul>
 <h3 id="reading-bev-networks">Reading: BEV networks</h3>
 <p>The BEV built in this phase is <em>geometric</em>: LiDAR already says where every point is in 3D,
