@@ -164,7 +164,7 @@ it under a fixed protocol, and reports what the numbers say, whether or not they
 </section>
 <section id="task-layout" class="prose">
 <h2 id="ray-task-layout">Did consolidating Ray tasks matter? <span class="badge diagnostic">Negligible</span></h2>
-<p class="meta">Nov 16, 2026 · revisits <a href="build.html#ray">build log §4</a> · <a href="#task-layout-data">data</a></p>
+<p class="meta">Nov 16, 2026 · revisits <a href="build.html#ray">build log §4</a> · <a href="build.html#experiments">build log §6</a> · <a href="#task-layout-data">data</a></p>
 <p><strong>The decision.</strong> Ingestion first wrote each batch with four Ray tasks, one per output table:
 three core tables (samples, sample data, annotations) and the projected 2D bboxes. I merged
 the three core-table writes into one task, leaving two tasks per batch.</p>
