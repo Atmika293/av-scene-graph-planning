@@ -86,7 +86,7 @@ h2, h3 { scroll-margin-top: 72px; }
 .prose { max-width: 760px; }
 .prose p, .prose li { color: var(--ink); }
 .prose .lede { font-size: 1.12em; color: var(--muted); }
-.prose table { width: 100%; }
+.prose table { width: 100%; font-size: 1em; }
 .prose th, .prose td { text-align: left; }
 .prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
 .prose img { max-width: 100%; }
@@ -100,7 +100,7 @@ th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; ve
 th { background: var(--surface); font-weight: 600; }
 figure { display: inline-block; vertical-align: top; }
 img { max-width: 100%; height: auto; }
-.chart-note { max-width: 760px; color: var(--muted); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.chart-note { max-width: 760px; color: var(--ink); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
 .js-plotly-plot, .plotly-graph-div { max-width: 100%; }
 
 /* Small shared components used from the Markdown pages. */

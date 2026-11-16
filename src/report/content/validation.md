@@ -5,8 +5,10 @@ under test, before the next stage is allowed to build on it. A bug then surfaces
 that introduced it, rather than as a vague wrongness at the end of the pipeline.
 {: .lede }
 
-The table below is regenerated from each check's own latest output every time this site is
-rebuilt; none of its numbers are typed by hand. Each row links to the script that produced it.
+## How the checks work
+
+The tables below are regenerated from each check's own latest output every time this site is
+rebuilt; none of their numbers are typed by hand. Each row links to the script that produced it.
 
 <div class="callout" markdown="1">
 **What "independent" means here.** A check that reuses the code it's checking can only
