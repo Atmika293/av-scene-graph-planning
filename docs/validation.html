@@ -70,7 +70,7 @@ h2, h3 { scroll-margin-top: 72px; }
 .prose { max-width: 760px; }
 .prose p, .prose li { color: var(--ink); }
 .prose .lede { font-size: 1.12em; color: var(--muted); }
-.prose table { width: 100%; }
+.prose table { width: 100%; font-size: 1em; }
 .prose th, .prose td { text-align: left; }
 .prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
 .prose img { max-width: 100%; }
@@ -84,7 +84,7 @@ th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; ve
 th { background: var(--surface); font-weight: 600; }
 figure { display: inline-block; vertical-align: top; }
 img { max-width: 100%; height: auto; }
-.chart-note { max-width: 760px; color: var(--muted); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.chart-note { max-width: 760px; color: var(--ink); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
 .js-plotly-plot, .plotly-graph-div { max-width: 100%; }
 
 /* Small shared components used from the Markdown pages. */
@@ -158,8 +158,9 @@ a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
 <p class="lede">Every stage of the pipeline is checked against a reference that's independent of the code
 under test, before the next stage is allowed to build on it. A bug then surfaces at the stage
 that introduced it, rather than as a vague wrongness at the end of the pipeline.</p>
-<p>The table below is regenerated from each check's own latest output every time this site is
-rebuilt; none of its numbers are typed by hand. Each row links to the script that produced it.</p>
+<h2 id="how-the-checks-work">How the checks work</h2>
+<p>The tables below are regenerated from each check's own latest output every time this site is
+rebuilt; none of their numbers are typed by hand. Each row links to the script that produced it.</p>
 <div class="callout">
 <p><strong>What "independent" means here.</strong> A check that reuses the code it's checking can only
 confirm the code agrees with itself. So each check compares against something else: the
@@ -168,8 +169,9 @@ annotations, or a physical fact (a car drives forward, not sideways).</p>
 </div>
 </section>
 <section id="checks">
-<div class="chain"><a class="link" href="#ingestion"><div class="n">Stage 1</div><div class="name">Ingestion</div><div class="sub">nuScenes tables &rarr; synced per-sample records &rarr; Parquet rows</div><div class="sub"><strong>3 / 3</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#projection"><div class="n">Stage 2</div><div class="name">Projection</div><div class="sub">3D boxes &rarr; global &rarr; ego &rarr; camera &rarr; pixel</div><div class="sub"><strong>2 / 2</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#bev"><div class="n">Stage 3</div><div class="name">BEV fusion</div><div class="sub">LiDAR points + camera colour &rarr; top-down raster</div><div class="sub"><strong>5 / 5</strong> checks pass &middot; 1 diagnostic</div></a></div>
-<h2 id="ingestion">Ingestion</h2>
+<h2>Checks by stage</h2>
+<div class="chain"><a class="link" href="#ingestion"><div class="n">Stage 1</div><div class="name">Ingestion</div><div class="sub">nuScenes tables &rarr; synced per-sample records &rarr; Parquet rows</div><div class="sub"><strong>3 / 3</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#projection"><div class="n">Stage 2</div><div class="name">Projection</div><div class="sub">3D boxes &rarr; global &rarr; ego &rarr; camera &rarr; pixel</div><div class="sub"><strong>2 / 2</strong> checks pass</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#bev"><div class="n">Stage 3</div><div class="name">BEV fusion</div><div class="sub">LiDAR points + camera colour &rarr; top-down raster</div><div class="sub"><strong>5 / 5</strong> checks pass &middot; 1 diagnostic</div></a><span class="arrow" aria-hidden="true">&rarr;</span><a class="link" href="#multisweep"><div class="n">Stage 4</div><div class="name">Multisweep</div><div class="sub">Earlier sweeps + their own cameras &rarr; reference frame &rarr; merged raster</div><div class="sub"><strong>4 / 4</strong> checks pass</div></a></div>
+<h3 id="ingestion">Ingestion</h3>
 <p class="chart-note">nuScenes tables &rarr; synced per-sample records &rarr; Parquet rows</p>
 <div class="table-scroll"><table class="checks">
 <tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
@@ -177,14 +179,14 @@ annotations, or a physical fact (a car drives forward, not sideways).</p>
 <tr><td><strong>Ingestion field mapping</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/verify_ingestion_keys.py"><code>verify_ingestion_keys.py</code></a></td><td>Raw devkit records, re-fetched independently and compared field by field</td><td>Reading the wrong record or the wrong field (wiring bugs)</td><td class="result"><span class="badge pass">Pass</span><br>64,192 / 64,192 values across 30 fields</td></tr>
 <tr><td><strong>Table row construction</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/verify_table_rows.py"><code>verify_table_rows.py</code></a></td><td>Target schema's column names + an independent re-indexer (not the code under test)</td><td>Columns drifting from the schema; a row built by the wrong builder</td><td class="result"><span class="badge pass">Pass</span><br>136,616 / 136,616 columns + values + smoke tests</td></tr>
 </table></div>
-<h2 id="projection">Projection</h2>
+<h3 id="projection">Projection</h3>
 <p class="chart-note">3D boxes &rarr; global &rarr; ego &rarr; camera &rarr; pixel</p>
 <div class="table-scroll"><table class="checks">
 <tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
 <tr><td><strong>Per-stage transform</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/evaluate_projections.py"><code>evaluate_projections.py</code></a></td><td>Intermediate corners from a fork of the devkit's 2D exporter (<code>export_2d_annotations_debug.py</code>)</td><td>Frame-order, sign, or intrinsics errors, localised to the stage that introduced them</td><td class="result"><span class="badge pass">Pass</span><br>44,414 / 44,414 corner sets match at every stage</td></tr>
 <tr><td><strong>Final 2D boxes</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/evaluate_projections.py"><code>evaluate_projections.py</code></a></td><td>nuScenes' <code>image_annotations.json</code></td><td>Clipping and in-front-of-camera errors; boxes missing or invented</td><td class="result"><span class="badge pass">Pass</span><br>min IoU 0.9997 over 17,683 boxes; 0 missing, 0 extra</td></tr>
 </table></div>
-<h2 id="bev">BEV fusion</h2>
+<h3 id="bev">BEV fusion</h3>
 <p class="chart-note">LiDAR points + camera colour &rarr; top-down raster</p>
 <div class="table-scroll"><table class="checks">
 <tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
@@ -194,6 +196,15 @@ annotations, or a physical fact (a car drives forward, not sideways).</p>
 <tr><td><strong>Box separation</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_box_containment.py"><code>check_box_containment.py</code></a></td><td>None: a nearest-neighbour gap ratio used to flag outliers</td><td>Boxes sitting off their object (flagged for inspection, not failed)</td><td class="result"><span class="badge diagnostic">Diagnostic</span><br>median gap ratio 3.26 over 100 boxes (lowest 0.71)</td></tr>
 <tr><td><strong>Camera colour sampling</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_remap.py"><code>check_remap.py</code></a></td><td>Bilinear interpolation computed by hand from the 4 neighbouring pixels</td><td>Pixel-centre convention mismatch; transposed image indexing</td><td class="result"><span class="badge pass">Pass</span><br>max difference 0.51 (threshold 1.0)</td></tr>
 <tr><td><strong>Raster channels</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_raster.py"><code>check_raster.py</code></a></td><td>A naive per-point loop implementation + sentinel/mask consistency rules</td><td>Empty-cell sentinels leaking into real cells; mask mismatches</td><td class="result"><span class="badge pass">Pass</span><br>3 / 3 samples pass; matches naive implementation on 1 / 1 compared</td></tr>
+</table></div>
+<h3 id="multisweep">Multisweep</h3>
+<p class="chart-note">Earlier sweeps + their own cameras &rarr; reference frame &rarr; merged raster</p>
+<div class="table-scroll"><table class="checks">
+<tr><th>Check</th><th>Compared against</th><th>Catches</th><th>Latest result</th></tr>
+<tr><td><strong>Camera frame per sweep</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_camera_matching.py"><code>check_camera_matching.py</code></a></td><td>The nearest frame by brute force, over an independent scan of nuScenes' <code>sample_data</code> table</td><td>A frame chain walked wrong (skipped, repeated, or from another scene); an off-by-one in the binary search; matching a frame past the max time gap</td><td class="result"><span class="badge pass">Pass</span><br>23,610 / 23,610 sweep/camera pairs; self-test caught 1 / 1 wrong inputs</td></tr>
+<tr><td><strong>Sweep alignment</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_multisweep.py"><code>check_multisweep.py</code></a></td><td>The devkit's own sweep accumulator, <code>LidarPointCloud.from_file_multisweep</code></td><td>An older sweep left in its own ego frame or moved with the wrong pose; a sweep paired with the wrong file</td><td class="result"><span class="badge pass">Pass</span><br>3,472,384 / 3,472,384 points across 100 sweeps (max error 0.005 mm); self-test caught 2 / 2 wrong inputs</td></tr>
+<tr><td><strong>Distance used for nearest point</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_multisweep.py"><code>check_multisweep.py</code></a></td><td>Each sweep's points from the devkit's single-sweep loader, in that sweep's own ego frame</td><td>Picking each cell's nearest point by distance from the reference vehicle position instead of the sweep's own</td><td class="result"><span class="badge pass">Pass</span><br>3,472,384 / 3,472,384 points</td></tr>
+<tr><td><strong>Merge rule</strong><br><a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/scripts/validation/check_multisweep.py"><code>check_multisweep.py</code></a></td><td>A naive loop: per cell, every channel from the newest sweep with a point there</td><td>An older sweep overwriting a newer one; one cell mixing channels from different sweeps</td><td class="result"><span class="badge pass">Pass</span><br>400,000 / 400,000 cells</td></tr>
 </table></div>
 </section>
 <section id="validation-notes" class="prose">
