@@ -2,7 +2,7 @@
 
 Walks scenes/samples via the NuScenes devkit and extracts sensor data, ego
 poses, calibration, and annotations into the aggregate key names defined in
-columns.py, ready for downstream transform/projection code.
+ingestion_keys.py, ready for downstream transform/projection code.
 """
 
 from nuscenes.nuscenes import NuScenes
@@ -82,22 +82,21 @@ def get_sample_token_from_scene_dict(nusc: NuScenes, scene_dict: dict) -> list[s
 def extract_sensor_data_from_sample_data(nusc: NuScenes, sample_data_token: str) -> dict:
     """Extract sensor readings, ego pose, and calibration for one sample_data record.
 
-    Returns a (sensor_modality, channel, sensor_data) tuple, where sensor_data
-    contains the ego pose, file metadata, and intrinsic/extrinsic calibration.
-
     Args:
         nusc: NuScenes devkit instance used to look up records.
         sample_data_token: Token of the sample_data record to extract.
 
     Returns:
-        dict: A dict
-        with keys 'ego_pose', 'timestamp', 'filepath', 'fileformat',
-        'image_height', 'image_width', 'sensor_intrinsic', and
-        'sensor_extrinsic'.
+        dict: One flat, column-mapped dict holding the record's own token
+        (SAMPLE_DATA_TOKEN), plus every field named in ingestion_keys'
+        EGO_POSE_KEYS_MAP (ego pose translation/rotation/timestamp),
+        SENSOR_DATA_KEYS_MAP (timestamp, filepath, file format, image
+        width/height, modality, channel), and SENSOR_CALIBRATION_KEYS_MAP
+        (intrinsic matrix, sensor-to-ego translation/rotation). Modality and
+        channel are returned as nuScenes stores them (lowercase modality).
     """
     # Look up the sample_data record for this sensor reading
     sd_record = nusc.get(SAMPLE_DATA_TABLE, sample_data_token)
-
 
     sensor_data = {SAMPLE_DATA_INGESTION_KEYS['token']: sample_data_token}
 
@@ -114,14 +113,13 @@ def extract_sensor_data_from_sample_data(nusc: NuScenes, sample_data_token: str)
     calibrated_sensor_token = sd_record[CALIBRATED_SENSOR_TOKEN]
     calibrated_sensor_record = nusc.get(CALIBRATED_SENSOR_TABLE, calibrated_sensor_token)
 
-
-    # Extract intrinsic calibration matrix and extrinsic (camera-to-ego) rotation/translation
+    # Extract intrinsic calibration matrix and extrinsic (sensor-to-ego) rotation/translation
     sensor_data = extract_key_values(sensor_data, calibrated_sensor_record, SENSOR_CALIBRATION_KEYS_MAP)
 
     return sensor_data
 
 
-def extract_annotation_from_sample_data(nusc: NuScenes, sample_ann_token: str) -> tuple[str, str, dict]:
+def extract_annotation_from_sample_data(nusc: NuScenes, sample_ann_token: str) -> dict:
     """Extract one 3D bounding-box annotation's fields into a column-mapped dict.
 
     Args:
@@ -129,9 +127,10 @@ def extract_annotation_from_sample_data(nusc: NuScenes, sample_ann_token: str) -
         sample_ann_token: Token of the sample_annotation record to extract.
 
     Returns:
-        dict: Annotation fields per SAMPLE_ANNOTATION_COLUMNS (instance/visibility/
-        prev/next tokens, pose translation/rotation, size, category, lidar/radar
-        point counts), plus a derived 'VISIBILITY_RANGE' (min%, max%) pair.
+        dict: The annotation's own token plus its fields per
+        ingestion_keys.SAMPLE_ANNOTATION_KEYS_MAP (instance/visibility/prev/next
+        tokens, pose translation/rotation, size, category, lidar/radar point
+        counts), plus a derived 'VISIBILITY_RANGE' (min%, max%) pair.
     """
     # Look up the sample_annotation record for this annotation
     sa_record = nusc.get(SAMPLE_ANNOTATION_TABLE, sample_ann_token)
@@ -151,10 +150,9 @@ def extract_sample_data_from_sample(nusc: NuScenes, sample_token: str) -> dict:
 
     For each sensor channel in the sample, extracts its sensor data (see
     extract_sensor_data_from_sample_data) and files it under its modality and
-    channel name. Also extracts every annotation attached to the sample.
-
-    Note: timestamp-skew tracking (max_camera_skew_ms / calculate_timestamp_skew_ms)
-    is scaffolded below but not currently computed or included in the output.
+    channel name. Sensors whose modality or channel isn't in
+    ingestion_keys.KNOWN_SENSOR_MODALITIES/KNOWN_SENSOR_CHANNELS are skipped.
+    Also extracts every annotation attached to the sample.
 
     Args:
         nusc: NuScenes devkit instance used to look up records.
@@ -185,23 +183,23 @@ def extract_sample_data_from_sample(nusc: NuScenes, sample_token: str) -> dict:
         # Extract this channel's sensor data (ego pose, file metadata, calibration)
         sensor_data = extract_sensor_data_from_sample_data(nusc, data_token)
 
-        # Modality/channel now come from the returned column-mapped dict itself
-        # (SENSOR_DATA_KEYS), not a separate return value. Uppercased here to
+        # Modality/channel come from the returned column-mapped dict itself
+        # (SENSOR_DATA_KEYS_MAP). Uppercased here to
         # match KNOWN_SENSOR_MODALITIES/KNOWN_SENSOR_CHANNELS and the "CAMERA"/
         # "LIDAR"/"RADAR" keys this function files sensor_data under below.
         sensor_modality = sensor_data[SAMPLE_DATA_INGESTION_KEYS['modality']].upper()
         channel = sensor_data[SAMPLE_DATA_INGESTION_KEYS['channel']].upper()
 
-        # Guard against sensor_modality/channel values not in columns.py's known
+        # Skip sensor_modality/channel values not in ingestion_keys' known
         # sets, in case nuScenes ever reports one this ingestion code doesn't expect.
         if sensor_modality not in KNOWN_SENSOR_MODALITIES:
-            break
+            continue
 
         if channel not in KNOWN_SENSOR_CHANNELS[sensor_modality]:
-            break
+            continue
 
         # File the sensor data under its modality (e.g. CAMERA) and channel name,
-        # logging the first time a new modality is encountered
+        # creating the modality's dict the first time it's encountered
         if sensor_modality in sample_data:
             sample_data[sensor_modality][channel] = sensor_data
         else:
