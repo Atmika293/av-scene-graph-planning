@@ -4,8 +4,8 @@ For each of the first NUM_SAMPLES samples in the first scene, builds a
 colored point cloud via bev.fusion.project_scene_to_bev (LiDAR points in the
 ego frame, colored by whichever camera saw each one -- see bev/fusion.py) and
 scatter-plots it: forward (ego +x) oriented up, left (ego +y) oriented left,
-points no camera covered drawn faint and gray so coverage gaps are visible
-rather than just missing. Each sample's annotated boxes (via
+points no camera covered drawn in blue so coverage gaps are visible rather
+than just missing. Each sample's annotated boxes (via
 bev.sample.SampleBoxProjection) are overlaid as footprint outlines, so
 box/point alignment can be checked by eye.
 
@@ -23,6 +23,8 @@ import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.legend_handler import HandlerTuple
+from matplotlib.lines import Line2D
 import numpy as np
 from nuscenes.nuscenes import NuScenes
 
@@ -36,6 +38,10 @@ IMAGE_DIR = "reports/bev_images"
 NUM_SAMPLES = 3
 MARKER_SIZE = 1
 BOX_COLOR = "#ff00ff"
+# Same blue as scripts/report/build_bev_report.py's UNCOVERED_COLOR (see its
+# comment): camera-sampled colours are often greys, so a grey "no coverage"
+# colour would blend in with genuinely grey points (asphalt, concrete).
+UNCOVERED_COLOR = "#2a78d6"
 
 # SampleAnnotation.__extract_corners (av_data_pipeline.transform) orders a
 # box's 8 corners as top/bottom pairs; indices 0, 2, 4, 6 are its top face,
@@ -54,6 +60,29 @@ def to_plot_xy(ego_xy: np.array) -> tuple[np.array, np.array]:
     orientation the raw ego-frame axes would otherwise plot as.
     """
     return -ego_xy[:, 1], ego_xy[:, 0]
+
+
+def camera_colour_examples(colors: np.array, count: int = 5) -> list[np.array]:
+    """A few real camera colours from this image, dark to light, for the legend swatch.
+
+    A single fixed swatch can't stand for "each point's own pixel colour", and
+    an empty outline reads as "nothing here". Picking colours at evenly spaced
+    brightness percentiles shows what camera-coloured points actually look
+    like in this image (mostly greys, on road scenes).
+
+    Args:
+        colors: Camera-coloured RGB values (M, 3), 0-255.
+        count: How many example colours to return.
+
+    Returns:
+        count RGB colours as 0-1 floats, darkest first.
+    """
+    if len(colors) == 0:
+        return [np.zeros(3)]
+    brightness = colors @ np.array([0.299, 0.587, 0.114])
+    order = np.argsort(brightness)
+    picks = order[(np.linspace(0.05, 0.95, count) * (len(order) - 1)).astype(int)]
+    return [colors[i] / 255.0 for i in picks]
 
 
 def render_bev(ego_points: np.array, colors: np.array, boxes: dict, title: str) -> "plt.Figure":
@@ -75,17 +104,28 @@ def render_bev(ego_points: np.array, colors: np.array, boxes: dict, title: str) 
     plot_x, plot_y = to_plot_xy(ego_points)
 
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.scatter(plot_x[~valid], plot_y[~valid], s=MARKER_SIZE, c="#888888", alpha=0.3, label="uncovered")
-    ax.scatter(plot_x[valid], plot_y[valid], s=MARKER_SIZE, c=colors[valid].astype(np.uint8) / 255.0, label="colored")
+    ax.scatter(plot_x[~valid], plot_y[~valid], s=MARKER_SIZE, c=UNCOVERED_COLOR)
+    ax.scatter(plot_x[valid], plot_y[valid], s=MARKER_SIZE, c=colors[valid].astype(np.uint8) / 255.0)
 
-    for i, corners in enumerate(boxes.values()):
+    for corners in boxes.values():
         footprint_x, footprint_y = to_plot_xy(corners[FOOTPRINT_CORNER_ORDER])
-        ax.plot(footprint_x, footprint_y, c=BOX_COLOR, linewidth=1, label="annotation" if i == 0 else None)
+        ax.plot(footprint_x, footprint_y, c=BOX_COLOR, linewidth=1)
 
     ax.set_aspect("equal")
     ax.set_xlabel("left <- ego y -> right (flipped)")
     ax.set_ylabel("ego x (forward)")
-    ax.legend(markerscale=10)
+    # Built by hand rather than from the scatters: matplotlib takes a
+    # per-point-coloured scatter's legend swatch from its first point, so the
+    # "colored" swatch would be an arbitrary (often white) pixel colour that
+    # changes from image to image. Instead it's a row of real example colours.
+    examples = tuple(Line2D([], [], linestyle="", marker="o", markersize=7, color=colour)
+                     for colour in camera_colour_examples(colors[valid]))
+    ax.legend(handles=[
+        examples,
+        Line2D([], [], linestyle="", marker="o", markersize=7, color=UNCOVERED_COLOR),
+        Line2D([], [], color=BOX_COLOR, linewidth=1),
+    ], labels=["camera-coloured (examples from this image)", "no camera coverage", "annotation"],
+       handler_map={tuple: HandlerTuple(ndivide=None, pad=0)})
     ax.set_title(title)
 
     return fig
