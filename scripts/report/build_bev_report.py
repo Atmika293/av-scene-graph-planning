@@ -668,7 +668,6 @@ before the reference keyframe each cell's data was captured.</li>
 {sample_options}
 </select></label>
 </div>
-<p class="chart-note" id="bev-caption"></p>
 {initial_html}
 <script>
 (function() {{
@@ -811,8 +810,17 @@ before the reference keyframe each cell's data was captured.</li>
   function caption(data, sweeps) {{
     if (sweeps !== "multi") return "";
     var m = data.multisweep;
-    return m.sweeps + " sweeps over the " + m.span_ms + " ms before the reference keyframe: " +
-           m.occupied_gain.toFixed(2) + "\u00d7 the occupied cells of the reference keyframe alone.";
+    return "<b>" + m.occupied_gain.toFixed(2) + "\u00d7 the occupied cells</b> of the " +
+           "reference keyframe alone, from " + m.sweeps + " sweeps over " + m.span_ms + " ms.";
+  }}
+  // The multisweep coverage note is the chart's title, so it sits in the
+  // plot; Reference Keyframe mode has no caption and keeps the plain layout.
+  function layoutWithCaption(text) {{
+    if (!text) return BEV_LAYOUT;
+    return Object.assign({{}}, BEV_LAYOUT, {{
+      title: {{text: text, x: 0.5, xanchor: "center", y: 0.97, yanchor: "top", font: {{size: 15}}}},
+      margin: Object.assign({{}}, BEV_LAYOUT.margin, {{t: 60}})
+    }});
   }}
   function syncViewOptions(sweeps) {{
     var select = document.getElementById("bev-view-select");
@@ -824,11 +832,11 @@ before the reference keyframe each cell's data was captured.</li>
   }}
 
   function bevRender(data, view, sweeps) {{
-    document.getElementById("bev-caption").textContent = caption(data, sweeps);
+    var title = caption(data, sweeps);
     data = sweepsData(data, sweeps);
     var baseTraces = VIEW_TRACE_BUILDERS[view](data);
     var traces = VIEWS_WITH_BOXES[view] ? baseTraces.concat(boxTraces(data)) : baseTraces;
-    Plotly.react("bev-chart", traces, BEV_LAYOUT);
+    Plotly.react("bev-chart", traces, layoutWithCaption(title));
   }}
 
   function bevOnChange() {{
