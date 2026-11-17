@@ -633,19 +633,19 @@ LiDAR return at all.</li>
 </ul>
 <h3>The Sweeps menu</h3>
 <ul>
-<li><strong>1 (keyframe):</strong> the keyframe's own LiDAR sweep.</li>
+<li><strong>Reference Keyframe:</strong> the reference keyframe's own LiDAR sweep, with nothing added.</li>
 <li><strong>Multisweep:</strong> adds the sweeps just before it. Each is coloured by the camera
-frames nearest to it in time and moved into the keyframe's ego frame, then all are merged on the
+frames nearest to it in time and moved into the reference keyframe's ego frame, then all are merged on the
 same grid, each cell keeping the newest sweep that reached it
 (<a href="https://github.com/Atmika293/av-scene-graph-planning/blob/main/src/bev/multisweep.py">bev/multisweep.py</a>, checked in the
 <a href="validation.html#multisweep">multisweep checks</a>).</li>
-<li><strong>Trails:</strong> boxes are the keyframe's, so anything that moved during the window
+<li><strong>Trails:</strong> boxes are the reference keyframe's, so anything that moved during the window
 leaves a trail behind its box.</li>
 <li><strong>Blue bands:</strong> the newest sweep to reach those cells had no camera frame close
 enough in time for that direction. The merge keeps that sweep's uncoloured point rather than an
 older, coloured one.</li>
 <li><strong>Views:</strong> raster views only, plus <strong>source sweep age</strong>: how long
-before the keyframe each cell's data was captured.</li>
+before the reference keyframe each cell's data was captured.</li>
 </ul>
 </div>
 <div style="margin:12px 0;">
@@ -660,7 +660,7 @@ before the keyframe each cell's data was captured.</li>
 </select></label>
 &nbsp;&nbsp;
 <label>Sweeps: <select id="bev-sweeps-select">
-<option value="single" selected>1 (keyframe)</option>
+<option value="single" selected>Reference Keyframe</option>
 <option value="multi">Multisweep</option>
 </select></label>
 &nbsp;&nbsp;
@@ -746,7 +746,7 @@ before the keyframe each cell's data was captured.</li>
   }}
   function rasterAgeTraces(data) {{
     var r = data.raster;
-    var colorbar = Object.assign({{title: {{text: "ms before keyframe"}}}}, COLORBAR_POSITION);
+    var colorbar = Object.assign({{title: {{text: "ms before reference keyframe"}}}}, COLORBAR_POSITION);
     return [{{type: "heatmap", z: r.age, x0: r.x0, y0: r.y0, dx: r.dx, dy: r.dy,
               colorscale: "Viridis", reversescale: true, zmin: 0, colorbar: colorbar}}];
   }}
@@ -811,8 +811,8 @@ before the keyframe each cell's data was captured.</li>
   function caption(data, sweeps) {{
     if (sweeps !== "multi") return "";
     var m = data.multisweep;
-    return m.sweeps + " sweeps over the " + m.span_ms + " ms before the keyframe: " +
-           m.occupied_gain.toFixed(2) + "\u00d7 the occupied cells of the keyframe sweep alone.";
+    return m.sweeps + " sweeps over the " + m.span_ms + " ms before the reference keyframe: " +
+           m.occupied_gain.toFixed(2) + "\u00d7 the occupied cells of the reference keyframe alone.";
   }}
   function syncViewOptions(sweeps) {{
     var select = document.getElementById("bev-view-select");
@@ -852,7 +852,7 @@ before the keyframe each cell's data was captured.</li>
 </script>
 <div class="prose">
 <h3>What each view shows</h3>
-<p>All views are in the keyframe's ego frame. The 2D ones are top-down, the car at
+<p>All views are in the reference keyframe's ego frame. The 2D ones are top-down, the car at
 the origin facing up the chart, within {GRID_HALF_EXTENT_METERS:.0f} m of it on each side.</p>
 <ul>
 <li><strong>Raster (color):</strong> the points binned into a grid of {CELL_SIZE_METERS} m cells. Each
@@ -875,8 +875,8 @@ has about {WINDOW_LENGTH} times as many, which would make each sample's download
 and the 3D view slow to rotate. The rasters stay the same size however many sweeps feed them,
 so multisweep offers rasters only.</li>
 <li><strong>Raster (source sweep age):</strong> multisweep only. How many milliseconds before the
-keyframe each cell's point was captured: the keyframe's own sweep is 0, older sweeps are larger.
-It shows which gaps in the keyframe's own sweep the older sweeps filled.</li>
+reference keyframe each cell's point was captured: the reference keyframe's own sweep is 0, older
+sweeps are larger. It shows which gaps in the reference keyframe's sweep the older sweeps filled.</li>
 </ul>
 <h3>Box colours</h3>
 <p>The {len(colored_categories)} most frequent categories across these

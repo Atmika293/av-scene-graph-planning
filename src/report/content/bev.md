@@ -16,10 +16,14 @@ the ground ([multisweep checks](validation.html#multisweep)).
   nuScenes setup, so each sweep is about 50 ms of points. Every sweep is recorded.
 - **Keyframe:** a sweep that nuScenes also chose as a *sample*, about every tenth sweep. The
   table below compares the two.
+- **Reference keyframe:** the keyframe picked in the **Sample** menu, the one this page is
+  about. Its boxes are the ones drawn, its ego frame is the one every view uses, and in
+  **Multisweep** it is the newest sweep in the window, the one the earlier sweeps are lined up
+  to.
 - **Ego frame:** coordinates attached to the car: origin at the rear axle, x forward, y left,
   z up. The car moves between sweeps, so each sweep has its own ego frame, wherever the car
-  was at that sweep's timestamp. Every view on this page is drawn in the **keyframe's ego
-  frame**, the one at the keyframe's timestamp.
+  was at that sweep's timestamp. Every view on this page is drawn in the **reference
+  keyframe's ego frame**, the one at its timestamp.
 - **Global frame:** coordinates fixed to the map. nuScenes records the car's pose (position
   and heading) in it for every sweep and camera image, which is what lets points move between
   ego frames taken at different times.
@@ -35,7 +39,7 @@ the ground ([multisweep checks](validation.html#multisweep)).
 
 ### One sweep
 
-The "1 (keyframe)" setting.
+The **Reference Keyframe** setting: the reference keyframe's sweep on its own.
 
 1. **Read the sweep.** Each point comes with x, y, z and intensity, in the LiDAR's own frame.
 2. **LiDAR to ego to global.** The LiDAR's mounting position and rotation on the car move the
@@ -52,25 +56,26 @@ The "1 (keyframe)" setting.
    colour it gets. A point no camera sees stays uncoloured (blue on the charts). There is no
    occlusion test, so a point hidden from a camera by something nearer takes that nearer
    object's colour.
-6. **Top-down view.** The coloured points, in the keyframe's ego frame, are plotted by x and y
+6. **Top-down view.** The coloured points, in the reference keyframe's ego frame, are plotted by x and y
    (scatter), or binned into a square grid (raster). In each cell the raster keeps the point
    nearest the sensor and records its colour, height (z) and intensity. Points tied for nearest
    are averaged.
 
 ### Multisweep
 
-1. **Gather the window.** The keyframe's sweep plus the sweeps just before it. For each sweep,
+1. **Gather the window.** The reference keyframe's sweep plus the sweeps just before it. For each sweep,
    every camera's image nearest in time is picked, if one is within the maximum time gap;
    otherwise that camera is skipped for that sweep.
 2. **Colour each sweep on its own.** Steps 1 to 5 above run once per sweep, with that sweep's
    own car pose and its own matched images, so each sweep is coloured by images from nearly the
    same moment.
-3. **Global to the keyframe's ego frame.** Each sweep's points, already in the global frame, are
-   moved into the keyframe's ego frame with the inverse of the car's pose at the keyframe.
+3. **Global to the reference keyframe's ego frame.** Each sweep's points, already in the global
+   frame, are moved into the reference keyframe's ego frame with the inverse of the car's pose at
+   the reference keyframe.
    Anything that stood still lines up across sweeps; anything that moved leaves a trail.
 4. **One raster per sweep.** Each sweep is binned on the same grid as above. "Nearest the
    sensor" is measured from that sweep's own ego origin, where the LiDAR actually was when it
-   took the point, not from the keyframe's.
+   took the point, not from the reference keyframe's.
 5. **Merge, newest first.** Each cell takes every channel (colour, height, intensity) from the
    newest sweep with a point in it. A cell no sweep reached stays empty.
 
