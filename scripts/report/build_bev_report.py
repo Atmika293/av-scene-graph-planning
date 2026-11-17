@@ -351,12 +351,12 @@ def bev_layout() -> dict:
     return {
         "height": 600,
         "margin": {"t": 30},
-        "xaxis": {"title": "left <- ego y -> right (flipped)", "scaleanchor": "y", "range": axis_range},
+        "xaxis": {"title": {"text": "left <- ego y -> right (flipped)"}, "scaleanchor": "y", "range": axis_range},
         # An explicit ascending range also overrides go.Image's default
         # reversed y-axis (see the module docstring) -- confirmed empirically
         # for this mechanism specifically, not just carried over from the
         # earlier autorange=True fix.
-        "yaxis": {"title": "ego x (forward)", "range": axis_range},
+        "yaxis": {"title": {"text": "ego x (forward)"}, "range": axis_range},
         # Stacked with COLORBAR_POSITION (top ~45% of the right margin) so
         # the two never overlap on the height/intensity views -- harmless on
         # scatter/raster-color, which have no colorbar competing for space.
@@ -370,9 +370,9 @@ def bev_layout() -> dict:
         # titles, and an initial camera angle (tuned by eye, not a
         # validated convention, same as render_bev_3d.py's ELEV/AZIM).
         "scene": {
-            "xaxis": {"title": "left <- ego y -> right (flipped)", "range": axis_range},
-            "yaxis": {"title": "ego x (forward)", "range": axis_range},
-            "zaxis": {"title": "ego z (up)"},
+            "xaxis": {"title": {"text": "left <- ego y -> right (flipped)"}, "range": axis_range},
+            "yaxis": {"title": {"text": "ego x (forward)"}, "range": axis_range},
+            "zaxis": {"title": {"text": "ego z (up)"}},
             "aspectmode": "cube",
             "camera": {"eye": {"x": 1.4, "y": -1.4, "z": 1.0}},
         },
