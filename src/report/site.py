@@ -31,7 +31,7 @@ import os
 import re
 from typing import Callable, NamedTuple
 
-from report import experiments, results, validation
+from report import experiments, papers, results, validation
 from report.html import KATEX_CDN_HTML, page_shell
 from report.markup import render_markdown
 
@@ -52,7 +52,7 @@ class Section(NamedTuple):
 class Page(NamedTuple):
     """One published page: its output file, nav label, <title>, and sections in order.
 
-    A page with a parent (an Experiments article or a Results page) is left out of the site-wide
+    A page with a parent (an Experiments article, a Results page or a paper's notes) is left out of the site-wide
     nav, which highlights its parent page instead while it's open.
     """
     filename: str
@@ -69,6 +69,13 @@ PAGES = [
     Page("learning.html", "Learning", "Learning log · AV Perception", [
         Section("learning", "Learning log", content="learning.md"),
     ]),
+    Page("papers.html", "Papers", "Papers · AV Perception", [
+        Section("papers-intro", "About", content="papers.md", intro=True),
+        Section("papers-index", "Papers", render=papers.render_index),
+    ]),
+    *[Page(paper.filename, paper.title, f"{paper.title} · Papers · AV Perception", [
+        Section("paper", "Paper", content=paper.content),
+    ], parent="papers.html") for paper in papers.PAPERS if paper.content],
     Page("build.html", "Build log", "Build log · AV Perception", [
         Section("build", "Build log", content="build.md"),
     ]),

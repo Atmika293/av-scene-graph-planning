@@ -187,45 +187,10 @@ relative to it.
 
 | Paper | Status |
 |---|---|
-| **Lift-Splat-Shoot**, Philion & Fidler, [ECCV 2020](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123590188.pdf) | <span class="badge progress">Reading</span> |
+| **[Lift-Splat-Shoot](paper-lss.html)**, Philion & Fidler, [ECCV 2020](https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123590188.pdf) | <span class="badge progress">Reading</span> |
 | **BEVFormer**, Li et al., ECCV 2022 | <span class="badge todo">Up next</span> |
 | **BEVFusion**, Liang et al., NeurIPS 2022 | <span class="badge todo">Up next</span> |
 | **Survey: Delving into the Devils of Bird's-eye-view Perception**, T-PAMI 2023, [arXiv 2209.05324](https://arxiv.org/abs/2209.05324) | <span class="badge todo">Up next</span> |
 
-<!-- DRAFT (Claude): placeholder notes on LSS -- replace with your own once you've finished it. -->
-#### Notes so far: Lift-Splat-Shoot
-
-- **Lift:** each pixel is lifted into a frustum of points along its ray (one per discrete
-  depth bin), weighted by a predicted depth distribution. Where my pipeline gets depth exactly
-  from LiDAR, LSS has to *predict* it, and hedges across depths when unsure.
-- **Splat:** the lifted features from all six cameras are sum-pooled into a shared BEV grid
-  of pillars: the learned counterpart of my raster's binning step.
-- **Shoot:** planning by scoring a set of template trajectories against the BEV cost map.
-  Relevant later, in Phase 3's trajectory evaluation.
-- **Lift and splat aren't networks, and the CNN never sees the calibration.** The only learned
-  part is the per-image CNN that predicts a depth distribution α and a feature c per pixel from
-  the image alone. Calibration enters in one fixed geometric step,
-  p<sub>ego</sub> = R · K⁻¹ · [u·d, v·d, d]ᵀ + t, after undoing the image resize and crop. That
-  is my Phase 2 projection run backwards: pixel plus a depth guess to ego, instead of ego to
-  pixel.
-- **Splat sums everything in a cell instead of choosing one value.** My raster keeps one value
-  per cell (nearest, first camera, last drawn). LSS sums every feature that lands in a cell,
-  from different depth bins, pixels and cameras, with no z-buffer. Placement is soft, because
-  each pixel contributes to every bin along its ray, weighted by α. My own reasoning, not the
-  paper's: near cells collect more rays than far ones.
-- **Splat borrows the pillar from PointPillars.** A pillar is a grid cell in x and y with no
-  binning in z.
-    - Every point in the footprint belongs to the same cell regardless of height.
-    - z survives as a point feature, encoded by a PointNet and a max over the pillar. That
-      avoids 3D convolutions, at the cost of squeezing vertical structure into one vector.
-    - It is my raster idea with learned channels.
-- **LSS resembles NeRF but runs the other way.** Both discretize rays and weight the samples;
-  the table below compares the rest.
-
-| | NeRF | LSS |
-|---|---|---|
-| The network maps | A 3D position to colour and density | An image to a per-pixel depth distribution |
-| Occlusion | Handled with transmittance | None: a softmax with no occlusion term |
-| Trained | Fitted per scene | Feed-forward across scenes |
-| Supervised by | Pixels | BEV labels |
-
+A paper's name links to its page on the [Papers](papers.html#phase-2) tab, with a summary and
+my notes, once I've started it.
