@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lift-Splat-Shoot · Papers · AV Perception</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    renderMathInElement(document.body, {
+        delimiters: [
+            {left: "\\(", right: "\\)", display: false},
+            {left: "\\[", right: "\\]", display: true}
+        ]
+    });
+});
+</script>
+
+<style>
+:root {
+  --ink: #1a1d21; --muted: #5b6470; --faint: #8a929c;
+  --line: #e3e6ea; --surface: #f6f7f9; --bg: #ffffff;
+  --accent: #1f5fbf; --accent-soft: #e8f0fb;
+  --pass: #1d7a46; --pass-soft: #e5f4ec;
+  --info: #8a5a00; --info-soft: #fbf1dc;
+  --todo: #6b7280; --todo-soft: #eef0f2;
+  /* A ceiling, not a target width: used as max-width (not width) below, so
+     a block still fills 100% of its container and shrinks to fit a narrow
+     screen exactly like the browser's own default behavior, only capping
+     once a screen is wide enough to hit this value. An earlier version
+     used width: min(94vw, 1400px) here, which reserved a proportional
+     margin on every screen, including phones that never needed one --
+     confirmed by comparing rendered widths at common phone sizes, not just
+     assumed. Shared by the header/main/footer so they can't drift apart. */
+  --page-width: 1400px;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: var(--accent); }
+code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface);
+  padding: 1px 5px; border-radius: 4px; }
+
+.site-header { border-bottom: 1px solid var(--line); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.site-header .inner { max-width: var(--page-width); margin: 0 auto; padding: 12px 16px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 24px; }
+.brand { font-weight: 700; color: var(--ink); text-decoration: none; letter-spacing: -0.01em; }
+nav.pages { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+nav.pages a { color: var(--muted); text-decoration: none; font-weight: 500; padding: 2px 0; }
+nav.pages a:hover { color: var(--ink); }
+nav.pages a[aria-current] { color: var(--ink); border-bottom: 2px solid var(--accent); }
+
+main { max-width: var(--page-width); margin: 0 auto; padding: 28px 16px 48px; }
+nav.sections { margin: 0 0 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.92em; }
+nav.sections::before { content: "On this page:"; color: var(--faint); }
+nav.sections a { text-decoration: none; font-weight: 600; }
+
+h1 { font-size: 1.9em; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 12px; }
+h2 { font-size: 1.4em; line-height: 1.3; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 1.12em; margin: 28px 0 8px; }
+h4 { font-size: 1em; margin: 20px 0 6px; }
+section { scroll-margin-top: 72px; }
+h2, h3 { scroll-margin-top: 72px; }
+
+/* Hand-written (Markdown) content: readable measure, left-aligned tables. */
+.prose { max-width: 760px; }
+.prose p, .prose li { color: var(--ink); }
+.prose .lede { font-size: 1.12em; color: var(--muted); }
+.prose table { width: 100%; font-size: 1em; }
+.prose th, .prose td { text-align: left; }
+.prose blockquote { margin: 16px 0; padding: 4px 16px; border-left: 3px solid var(--line); color: var(--muted); }
+.prose img { max-width: 100%; }
+@media (max-width: 640px) { .prose table { display: block; overflow-x: auto; } }
+/* position: relative so KaTeX's absolutely-positioned (visually hidden) MathML copy is clipped too. */
+.katex-display { position: relative; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+
+/* Generated fragments (benchmark.py, build_correctness_report.py, ...). */
+table { border-collapse: collapse; margin: 12px 0; font-size: 0.94em; }
+th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; vertical-align: top; }
+th { background: var(--surface); font-weight: 600; }
+figure { display: inline-block; vertical-align: top; }
+img { max-width: 100%; height: auto; }
+.chart-note { max-width: 760px; color: var(--ink); font-size: 0.92em; line-height: 1.55; margin: 16px 0 4px 0; }
+.js-plotly-plot, .plotly-graph-div { max-width: 100%; }
+
+/* Small shared components used from the Markdown pages. */
+.meta { color: var(--faint); font-size: 0.9em; margin: -4px 0 12px; }
+.badge { display: inline-block; font-size: 0.75em; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  vertical-align: middle; margin-left: 6px; white-space: nowrap; }
+.badge.done, .badge.pass { background: var(--pass-soft); color: var(--pass); }
+.badge.progress, .badge.diagnostic { background: var(--info-soft); color: var(--info); }
+.badge.todo, .badge.notrun { background: var(--todo-soft); color: var(--todo); }
+.badge.fail { background: #fdecec; color: #b42318; }
+
+.skill-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 6px; }
+.skill-pills .pill { display: inline-block; padding: 5px 14px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.88em; font-weight: 600; }
+
+.tags { margin: 4px 0 0; }
+.tags .tag { display: inline-block; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line);
+  color: var(--muted); font-size: 0.78em; font-weight: 600; margin: 2px 4px 2px 0; }
+
+.callout { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.callout > :first-child { margin-top: 0; } .callout > :last-child { margin-bottom: 0; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 20px 0 28px; max-width: none; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+a.stat { display: block; text-decoration: none; color: var(--ink); }
+a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
+.stat .thumb { display: block; width: 100%; height: 84px; object-fit: cover; border-radius: 6px; }
+.stat .value { font-size: 1.7em; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--muted); font-size: 0.88em; margin-top: 6px; line-height: 1.4; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin: 16px 0; }
+.card { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--ink); }
+.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.card strong { display: block; color: var(--accent); margin-bottom: 4px; }
+.card span { color: var(--muted); font-size: 0.92em; line-height: 1.45; display: block; }
+.card span.badge { display: inline-block; font-size: 0.75em; vertical-align: 0.1em; margin-left: 4px; }
+
+.progress-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 6px; }
+.progress-strip div { font-size: 0.78em; text-align: center; padding: 8px 4px; border-radius: 6px;
+  background: var(--todo-soft); color: var(--todo); line-height: 1.25; }
+.progress-strip .done { background: var(--pass-soft); color: var(--pass); }
+.progress-strip .current { background: var(--accent); color: #fff; font-weight: 600; }
+@media (max-width: 640px) { .progress-strip { grid-template-columns: repeat(4, 1fr); } }
+
+/* Validation page: chain of trust + per-stage check tables. */
+.chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 20px 0 8px; }
+.chain .link { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; text-decoration: none; color: var(--ink); }
+.chain .link:hover { border-color: var(--accent); }
+.chain .link .n { color: var(--faint); font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.chain .link .name { font-weight: 700; margin: 2px 0; }
+.chain .link .sub { color: var(--muted); font-size: 0.88em; }
+.chain .arrow { align-self: center; color: var(--faint); font-size: 1.3em; }
+@media (max-width: 640px) { .chain .arrow { display: none; } }
+.checks { width: 100%; }
+.checks th, .checks td { text-align: left; }
+.checks td.result { font-variant-numeric: tabular-nums; }
+.table-scroll { overflow-x: auto; }
+
+.site-footer { border-top: 1px solid var(--line); color: var(--faint); font-size: 0.88em; }
+.site-footer .inner { max-width: var(--page-width); margin: 0 auto; padding: 16px; }
+</style>
+</head>
+<body>
+<header class="site-header"><div class="inner">
+<a class="brand" href="index.html">AV Perception: nuScenes Pipeline</a>
+<nav class="pages"><a href="index.html">Home</a> <a href="learning.html">Learning</a> <a href="papers.html" aria-current="page">Papers</a> <a href="build.html">Build log</a> <a href="experiments.html">Experiments</a> <a href="validation.html">Validation</a> <a href="results.html">Results</a> <a href="bev.html">BEV</a> <a href="roadmap.html">Roadmap</a></nav>
+</div></header>
+<main>
+<section id="paper" class="prose">
+<p class="meta"><a href="papers.html">← All papers</a></p>
+<h1 id="lift-splat-shoot">Lift-Splat-Shoot</h1>
+<p class="meta">Philion &amp; Fidler · <a href="https://www.ecva.net/papers/eccv_2020/papers_ECCV/papers/123590188.pdf">ECCV 2020</a> · <span class="badge progress">Reading</span> · read for <a href="learning.html">Phase 2</a></p>
+<p class="lede">How to build a bird's-eye view from cameras alone, where depth has to be predicted rather
+than measured. My Phase 2 BEV does the same job geometrically, with LiDAR supplying every
+point's position, so most of my notes compare the two.</p>
+<h2 id="summary">Summary</h2>
+<ul>
+<li><strong>Problem:</strong> turn the images from a car's cameras into one top-down map (for example, which
+  cells are vehicle or drivable road), for any number of cameras with known calibration.</li>
+<li><strong>Lift:</strong> each pixel is lifted into a frustum of points along its ray, one per discrete depth
+  bin, weighted by a predicted depth distribution. Where my pipeline gets depth exactly from
+  LiDAR, LSS has to <em>predict</em> it, and hedges across depths when unsure.</li>
+<li><strong>Splat:</strong> the lifted features from all six cameras are sum-pooled into a shared BEV grid of
+  pillars: the learned counterpart of my raster's binning step.</li>
+<li><strong>Shoot:</strong> planning by scoring a set of template trajectories against a cost map predicted in
+  BEV. Relevant later, in Phase 3's trajectory evaluation.</li>
+<li><strong>Training:</strong> end to end from BEV labels only. Depth is never supervised directly; the depth
+  distribution is whatever makes the BEV output right.</li>
+</ul>
+<h2 id="my-notes">My notes</h2>
+<ul>
+<li><strong>Lift and splat aren't networks, and the CNN never sees the calibration.</strong> The only learned
+  part is the per-image CNN that predicts a depth distribution α and a feature c per pixel from
+  the image alone. Calibration enters in one fixed geometric step,
+  p<sub>ego</sub> = R · K⁻¹ · [u·d, v·d, d]ᵀ + t, after undoing the image resize and crop. That
+  is my Phase 2 projection run backwards: pixel plus a depth guess to ego, instead of ego to
+  pixel.</li>
+<li><strong>Splat sums everything in a cell instead of choosing one value.</strong> My raster keeps one value
+  per cell (nearest, first camera, last drawn). LSS sums every feature that lands in a cell,
+  from different depth bins, pixels and cameras, with no z-buffer. Placement is soft, because
+  each pixel contributes to every bin along its ray, weighted by α. My own reasoning, not the
+  paper's: near cells collect more rays than far ones.</li>
+<li><strong>Splat borrows the pillar from PointPillars.</strong> A pillar is a grid cell in x and y with no
+  binning in z.<ul>
+<li>Every point in the footprint belongs to the same cell regardless of height.</li>
+<li>z survives as a point feature, encoded by a PointNet and a max over the pillar. That
+  avoids 3D convolutions, at the cost of squeezing vertical structure into one vector.</li>
+<li>It is my raster idea with learned channels.</li>
+</ul>
+</li>
+<li><strong>LSS resembles NeRF but runs the other way.</strong> Both discretize rays and weight the samples;
+  the table below compares the rest.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>NeRF</th>
+<th>LSS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The network maps</td>
+<td>A 3D position to colour and density</td>
+<td>An image to a per-pixel depth distribution</td>
+</tr>
+<tr>
+<td>Occlusion</td>
+<td>Handled with transmittance</td>
+<td>None: a softmax with no occlusion term</td>
+</tr>
+<tr>
+<td>Trained</td>
+<td>Fitted per scene</td>
+<td>Feed-forward across scenes</td>
+</tr>
+<tr>
+<td>Supervised by</td>
+<td>Pixels</td>
+<td>BEV labels</td>
+</tr>
+</tbody>
+</table>
+</section>
+</main>
+<footer class="site-footer"><div class="inner">
+Source: <a href="https://github.com/Atmika293/av-scene-graph-planning">github.com/Atmika293/av-scene-graph-planning</a> &middot;
+every number on this site is computed from the pipeline's own run output each time it's rebuilt.
+</div></footer>
+</body>
+</html>
