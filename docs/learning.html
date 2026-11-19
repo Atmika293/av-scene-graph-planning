@@ -363,7 +363,59 @@ relative to it.</p>
   of pillars: the learned counterpart of my raster's binning step.</li>
 <li><strong>Shoot:</strong> planning by scoring a set of template trajectories against the BEV cost map.
   Relevant later, in Phase 3's trajectory evaluation.</li>
+<li><strong>Lift and splat aren't networks, and the CNN never sees the calibration.</strong> The only learned
+  part is the per-image CNN that predicts a depth distribution α and a feature c per pixel from
+  the image alone. Calibration enters in one fixed geometric step,
+  p<sub>ego</sub> = R · K⁻¹ · [u·d, v·d, d]ᵀ + t, after undoing the image resize and crop. That
+  is my Phase 2 projection run backwards: pixel plus a depth guess to ego, instead of ego to
+  pixel.</li>
+<li><strong>Splat sums everything in a cell instead of choosing one value.</strong> My raster keeps one value
+  per cell (nearest, first camera, last drawn). LSS sums every feature that lands in a cell,
+  from different depth bins, pixels and cameras, with no z-buffer. Placement is soft, because
+  each pixel contributes to every bin along its ray, weighted by α. My own reasoning, not the
+  paper's: near cells collect more rays than far ones.</li>
+<li><strong>Splat borrows the pillar from PointPillars.</strong> A pillar is a grid cell in x and y with no
+  binning in z.<ul>
+<li>Every point in the footprint belongs to the same cell regardless of height.</li>
+<li>z survives as a point feature, encoded by a PointNet and a max over the pillar. That
+  avoids 3D convolutions, at the cost of squeezing vertical structure into one vector.</li>
+<li>It is my raster idea with learned channels.</li>
 </ul>
+</li>
+<li><strong>LSS resembles NeRF but runs the other way.</strong> Both discretize rays and weight the samples;
+  the table below compares the rest.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>NeRF</th>
+<th>LSS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The network maps</td>
+<td>A 3D position to colour and density</td>
+<td>An image to a per-pixel depth distribution</td>
+</tr>
+<tr>
+<td>Occlusion</td>
+<td>Handled with transmittance</td>
+<td>None: a softmax with no occlusion term</td>
+</tr>
+<tr>
+<td>Trained</td>
+<td>Fitted per scene</td>
+<td>Feed-forward across scenes</td>
+</tr>
+<tr>
+<td>Supervised by</td>
+<td>Pixels</td>
+<td>BEV labels</td>
+</tr>
+</tbody>
+</table>
 </section>
 </main>
 <footer class="site-footer"><div class="inner">
