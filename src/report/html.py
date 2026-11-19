@@ -136,6 +136,7 @@ a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
 .card:hover { border-color: var(--accent); background: var(--accent-soft); }
 .card strong { display: block; color: var(--accent); margin-bottom: 4px; }
 .card span { color: var(--muted); font-size: 0.92em; line-height: 1.45; display: block; }
+.card span.badge { display: inline-block; font-size: 0.75em; vertical-align: 0.1em; margin-left: 4px; }
 
 .progress-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 6px; }
 .progress-strip div { font-size: 0.78em; text-align: center; padding: 8px 4px; border-radius: 6px;
