@@ -1,3 +1,7 @@
+# Versions are pinned to the environment the published results were produced
+# in (Python 3.13), so a run on another machine (e.g. Runpod) uses the same
+# libraries and a timing difference can't come from a library upgrade.
+
 # This project's own src/av_data_pipeline package, installed in editable
 # mode so ingestion.py/transform.py/etc. are importable from scripts/ and tests/
 # without PYTHONPATH tricks. See pyproject.toml for the package config.
@@ -5,34 +9,38 @@
 
 # Core dataset library — pulls in most nuScenes-specific transitive deps
 # (pyquaternion, Shapely, cachetools, Pillow, tqdm) automatically.
-nuscenes-devkit
+nuscenes-devkit==1.2.0
 
 # Explicitly force-reinstalled in the notebook's init cell — likely to fix
 # a numpy/opencv ABI mismatch against whatever ships preinstalled on Colab.
 # Version pin taken directly from that cell; keep it unless you've verified
 # a newer build works in your environment.
-numpy
-scipy
-scikit-learn
+numpy==1.26.4
+scipy==1.17.1
+scikit-learn==1.9.1
 opencv-python-headless==4.11.0.86
 
 # Used directly in the analysis/plotting cells (np.*, go.*, px.*, pd.*)
-pandas
-plotly
+pandas==3.0.5
+plotly==7.0.0
 
 # nuScenes' built-in render_* methods (render_sample_data,
 # render_pointcloud_in_image, render_annotation, render_egoposes_on_map, etc.)
 # are matplotlib-based; %matplotlib inline also implies this is needed.
-matplotlib
+matplotlib==3.11.2
 
 # To actually run the .ipynb itself, not just the code inside it
-jupyter
-ipykernel
+jupyter==1.1.1
+ipykernel==7.3.0
 
 # pyarrow: schema.py/table.py's Parquet table schemas and batch writes.
 # ray: parallel/distributed batch processing for the ingestion pipeline.
-pyarrow
-ray
+pyarrow==25.0.1
+ray==2.58.0
 
 # markdown: renders the published site's hand-written pages (src/report/content/*.md).
-markdown
+markdown==3.11.2
+
+# psutil: benchmark.py's whole-machine CPU sampling. Listed explicitly because
+# it was only ever installed as another package's dependency.
+psutil==7.2.2
