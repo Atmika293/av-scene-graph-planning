@@ -17,7 +17,7 @@ NUM_CPUS, TASK_LAYOUT -- live in config.toml's [partition] table alongside every
 setting (see av_data_pipeline.config), overridable the same way:
     export BATCH_SIZE=1        # scenes aggregated into one manifest/batch
     export MAX_IN_FLIGHT=32    # cap on simultaneously in-flight Ray tasks
-    export NUM_CPUS=4          # passed to ray.init(); unset = use all available
+    export NUM_CPUS=4          # passed to ray.init(); unset = every CPU available (machine.py)
     export TASK_LAYOUT=split   # 4 tasks per batch instead of 2 (consolidated)
 """
 
@@ -36,6 +36,7 @@ from av_data_pipeline.config import (
     BATCH_SIZE, MAX_IN_FLIGHT, NUM_CPUS, TASK_LAYOUT,
 )
 from av_data_pipeline.ingestion import build_scene_data_from_scene_dict
+from av_data_pipeline.machine import available_cpus
 from av_data_pipeline.nuscenes import SCENE_TOKEN
 from av_data_pipeline.schema import sample_schema, sample_data_schema, sample_annotation_schema
 from av_data_pipeline.table import *
@@ -228,11 +229,12 @@ if __name__ == "__main__":
     # Explicit rather than relying on .remote()'s implicit auto-init on first
     # call; ignore_reinit_error so re-running in the same process (e.g. a
     # REPL/notebook) doesn't crash on an already-initialized Ray instance.
-    # num_cpus=None (NUM_CPUS unset) lets Ray auto-detect all available cores,
-    # matching ray.init()'s own default -- set NUM_CPUS to compare worker counts.
+    # NUM_CPUS unset means every CPU this process may use: machine.available_cpus()
+    # rather than Ray's own detection, which in a container can count the host's
+    # cores (it misses a cgroup v2 CPU set). Set NUM_CPUS to compare worker counts.
     if TASK_LAYOUT not in ("consolidated", "split"):
         sys.exit(f"TASK_LAYOUT must be 'consolidated' or 'split', not {TASK_LAYOUT!r}")
-    ray.init(ignore_reinit_error=True, num_cpus=NUM_CPUS)
+    ray.init(ignore_reinit_error=True, num_cpus=NUM_CPUS or available_cpus())
 
     all_refs, pending = [], []  # every ref submitted; refs not yet known-complete
     ref_label: dict[ray.ObjectRef, str] = {}  # ref -> human-readable description, for failure reporting

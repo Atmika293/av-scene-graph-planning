@@ -13,7 +13,8 @@ collects:
     which doesn't shrink as worker count grows.
   - task_timings: partition.py's own reports/partition_timing.json, i.e.
     every task's wait/compute/write breakdown for that run.
-  - cpu_samples: whole-machine CPU utilization sampled throughout the run.
+  - cpu_samples: CPU utilization sampled throughout the run, as a share of
+    the CPUs this machine (or container) may use; see CPUSampler.
 
 Each sweep is a *series*: one dataset version (NUSCENES_VERSION) on one
 machine (BENCHMARK_MACHINE). It writes one JSON line per run to its own
@@ -53,6 +54,7 @@ from av_data_pipeline.config import (
     NUSCENES_VERSION, BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS,
     BENCHMARK_CPU_SAMPLE_INTERVAL, BENCHMARK_REPORT_DIR, BENCHMARK_MACHINE,
 )
+from av_data_pipeline.machine import available_cpus, cpu_usage_seconds
 from report.html import KATEX_CDN_HTML
 
 REPORTS_DIR = "reports"
@@ -87,11 +89,18 @@ def series_label(series: str) -> str:
 
 
 class CPUSampler:
-    """Samples whole-machine CPU utilization on a background thread.
+    """Samples CPU utilization on a background thread, as a share of the CPUs available.
 
-    psutil.cpu_percent(interval=X) blocks for X seconds and returns the
-    average utilization over that window, so one call per loop iteration
-    is itself the sampling cadence -- no separate sleep() is needed.
+    On Linux it reads this cgroup's own CPU time (machine.cpu_usage_seconds),
+    because in a container psutil.cpu_percent() reads the host's /proc/stat
+    and would count every other tenant's work too. Utilization is the CPU
+    time used over each window divided by window length x available_cpus(),
+    so 100% means every CPU this container may use was busy, matching what
+    it means on the laptop.
+
+    Elsewhere (macOS) it uses psutil.cpu_percent(interval=X), which blocks for
+    X seconds and returns the average over that window, so one call per loop
+    iteration is itself the sampling cadence.
     """
 
     def __init__(self, interval: float):
@@ -106,9 +115,19 @@ class CPUSampler:
         self._thread.start()
 
     def _run(self):
-        while not self._stop.is_set():
-            pct = psutil.cpu_percent(interval=self.interval)
-            self.samples.append((time.perf_counter() - self._start_time, pct))
+        if cpu_usage_seconds() is None:
+            while not self._stop.is_set():
+                pct = psutil.cpu_percent(interval=self.interval)
+                self.samples.append((time.perf_counter() - self._start_time, pct))
+            return
+
+        cpus = available_cpus()
+        last_wall, last_usage = time.perf_counter(), cpu_usage_seconds()
+        while not self._stop.wait(self.interval):
+            wall, usage = time.perf_counter(), cpu_usage_seconds()
+            pct = 100 * (usage - last_usage) / ((wall - last_wall) * cpus)
+            self.samples.append((wall - self._start_time, min(pct, 100.0)))
+            last_wall, last_usage = wall, usage
 
     def stop(self):
         self._stop.set()
@@ -187,7 +206,8 @@ def run_partition_once(worker_count: int, repeat: int, task_layout: str | None =
         "series": SERIES,
         # Recorded per run, so a report built on another machine still
         # describes the one the sweep ran on.
-        "cpu_count": os.cpu_count(),
+        # The CPUs this machine (or container) may use, not the host's.
+        "cpu_count": available_cpus(),
         "success": success,
         "wall_time": wall_time,
         "startup_overhead": startup_overhead,
