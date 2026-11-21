@@ -24,6 +24,7 @@ class Experiment(NamedTuple):
     dates: str  # paths for {{dates:...}}: the article's date range from feat:/fix: commits
     outcome: str = ""  # optional short verdict for the card, e.g. "Negligible"; "" for none
     fragment: str | None = None  # optional generated data section, path under docs/
+    date: str = ""  # hand-written date shown instead of dates' commit range; "" to use dates
 
     @property
     def filename(self) -> str:
@@ -42,6 +43,9 @@ EXPERIMENTS = [
         dates="benchmark_task_layout.py",
         outcome="Negligible",
         fragment="_task_layout_section.html",
+        # Hand-dated: a later feat: commit to benchmark_task_layout.py (one results file
+        # per dataset and machine) was made for the full-dataset run, not this experiment.
+        date="Nov 16, 2026",
     ),
 ]
 
@@ -52,7 +56,7 @@ def render_index() -> str:
     for experiment in EXPERIMENTS:
         outcome = (f' <span class="badge diagnostic">{escape(experiment.outcome)}</span>'
                    if experiment.outcome else "")
-        date = expand_directives(f"{{{{dates: {experiment.dates}}}}}")
+        date = escape(experiment.date) or expand_directives(f"{{{{dates: {experiment.dates}}}}}")
         cards.append(
             f'<a class="card" href="{experiment.filename}"><strong>{escape(experiment.title)}{outcome}</strong>'
             f"<span>{expand_directives(experiment.summary)}</span>"
