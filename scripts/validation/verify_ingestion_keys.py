@@ -135,8 +135,8 @@ if __name__ == "__main__":
         sample_tracker.check(SAMPLE_INGESTION_KEYS['scene_token'], sample_token,
                              extracted_sample_data[SAMPLE_INGESTION_KEYS['scene_token']],
                              sample['scene_token'])
-        sample_tracker.check(SAMPLE_INGESTION_KEYS['sample_ts'], sample_token,
-                             extracted_sample_data[SAMPLE_INGESTION_KEYS['sample_ts']],
+        sample_tracker.check(SAMPLE_INGESTION_KEYS['timestamp'], sample_token,
+                             extracted_sample_data[SAMPLE_INGESTION_KEYS['timestamp']],
                              sample['timestamp'])
         # 'annotations' isn't a scalar field -- check its key set instead.
         extracted_ann_tokens = set(extracted_sample_data[SAMPLE_INGESTION_KEYS['annotations']].keys())
