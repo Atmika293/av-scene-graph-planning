@@ -24,6 +24,10 @@ worker_counts = [1, 2, 4, 8]
 repeats = 3
 cpu_sample_interval = 0.5
 report_dir = "docs/"
+# Which machine a sweep ran on. Each (dataset version, machine) pair gets its own
+# results file, so a sweep on one never overwrites another's. Set
+# BENCHMARK_MACHINE=runpod (no underscores) when sweeping there.
+machine = "laptop"
 
 [correctness]
 # Floor on projected bbox area (px^2) below which a pair is excluded from

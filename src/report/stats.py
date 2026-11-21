@@ -185,8 +185,12 @@ def raster() -> dict | None:
 
 
 def benchmark() -> dict | None:
-    """benchmark.py: mean wall time per worker count, reduced to the headline speedup and startup share."""
-    text = _read("benchmark_results.jsonl")
+    """benchmark.py: mean wall time per worker count, reduced to the headline speedup and startup share.
+
+    Reads the v1.0-mini sweep on the laptop, the series the site's headline numbers quote;
+    other series (another dataset or machine) are drawn on the Ray scaling page alongside it.
+    """
+    text = _read("benchmark_results_v1.0-mini_laptop.jsonl")
     if text is None:
         return None
     by_wc: dict[int, list[float]] = {}
@@ -255,7 +259,7 @@ def task_layout() -> dict | None:
     "Within noise" uses the same rule as benchmark_task_layout.py's verdict
     column: the difference is smaller than the two layouts' stdevs added.
     """
-    text = _read("task_layout_results.jsonl")
+    text = _read("task_layout_results_v1.0-mini_laptop.jsonl")  # the published sweep
     if text is None:
         return None
     work: dict[tuple[str, int], list[float]] = {}

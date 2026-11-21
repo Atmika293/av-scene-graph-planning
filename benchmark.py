@@ -15,18 +15,31 @@ collects:
     every task's wait/compute/write breakdown for that run.
   - cpu_samples: whole-machine CPU utilization sampled throughout the run.
 
-Writes one JSON line per run to reports/benchmark_results.jsonl as it goes
-(so a crash partway through the sweep doesn't lose earlier runs), then
-aggregates everything into 4 charts in
-BENCHMARK_REPORT_DIR/_performance_section.html -- an HTML *fragment*, not a
-full page (see build_report.py, which will combine this with the
-correctness section into one docs/index.html).
+Each sweep is a *series*: one dataset version (NUSCENES_VERSION) on one
+machine (BENCHMARK_MACHINE). It writes one JSON line per run to its own
+reports/benchmark_results_<version>_<machine>.jsonl as it goes (so a crash
+partway through doesn't lose earlier runs, and a sweep of one dataset or
+machine never overwrites another's). Every run writes its Parquet output to
+an emptied data/benchmark_output/<version>_<machine>/, so runs don't pile
+up output and each one starts from the same state.
+
+The report is then built from every series' results file into one
+BENCHMARK_REPORT_DIR/_performance_section.html (an HTML *fragment*, combined
+into the site by scripts/report/build_report.py): one speedup line per
+series, and the other charts once per series.
 
 Run with: python benchmark.py (from the repo root, same as partition.py).
+On another dataset or machine:
+    NUSCENES_VERSION=v1.0-trainval BENCHMARK_MACHINE=runpod python benchmark.py
+To rebuild the fragment from saved results without rerunning anything:
+    python benchmark.py --report-only
 """
 
+import argparse
+import glob
 import json
 import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -37,13 +50,40 @@ import psutil
 import plotly.graph_objects as go
 
 from av_data_pipeline.config import (
-    BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS,
-    BENCHMARK_CPU_SAMPLE_INTERVAL, BENCHMARK_REPORT_DIR,
+    NUSCENES_VERSION, BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS,
+    BENCHMARK_CPU_SAMPLE_INTERVAL, BENCHMARK_REPORT_DIR, BENCHMARK_MACHINE,
 )
 from report.html import KATEX_CDN_HTML
 
-RESULTS_PATH = "reports/benchmark_results.jsonl"
+REPORTS_DIR = "reports"
+RESULTS_PREFIX = "benchmark_results_"
 PARTITION_TIMING_PATH = "reports/partition_timing.json"
+# The series this process sweeps: one dataset version on one machine.
+SERIES = f"{NUSCENES_VERSION}_{BENCHMARK_MACHINE}"
+# Parent of each series' benchmark output folder; kept apart from OUTPUT_ROOT,
+# where a real export goes, since each run empties its folder first.
+BENCHMARK_OUTPUT_DIR = "data/benchmark_output"
+
+
+def results_path(prefix: str, series: str = SERIES) -> str:
+    """A series' results file under reports/, e.g. reports/benchmark_results_v1.0-mini_laptop.jsonl."""
+    return os.path.join(REPORTS_DIR, f"{prefix}{series}.jsonl")
+
+
+def load_all_series(prefix: str) -> dict[str, list[dict]]:
+    """Every series' saved result records, keyed by series name, in name order."""
+    series = {}
+    for path in sorted(glob.glob(os.path.join(REPORTS_DIR, f"{prefix}*.jsonl"))):
+        name = os.path.basename(path)[len(prefix):-len(".jsonl")]
+        with open(path) as results_file:
+            series[name] = [json.loads(line) for line in results_file if line.strip()]
+    return series
+
+
+def series_label(series: str) -> str:
+    """A series name as readers see it: "v1.0-mini_laptop" -> "v1.0-mini on laptop"."""
+    version, _, machine = series.rpartition("_")
+    return f"{version} on {machine}"
 
 
 class CPUSampler:
@@ -100,6 +140,11 @@ def run_partition_once(worker_count: int, repeat: int, task_layout: str | None =
     env["NUM_CPUS"] = str(worker_count)
     env["BATCH_SIZE"] = "1"
     env["MAX_IN_FLIGHT"] = "32"
+    # An emptied folder per run: earlier runs' files neither pile up nor sit
+    # in the folder a later run writes to.
+    output_root = os.path.join(BENCHMARK_OUTPUT_DIR, SERIES)
+    shutil.rmtree(output_root, ignore_errors=True)
+    env["OUTPUT_ROOT"] = output_root
     if task_layout is not None:
         env["TASK_LAYOUT"] = task_layout
 
@@ -139,6 +184,10 @@ def run_partition_once(worker_count: int, repeat: int, task_layout: str | None =
         "worker_count": worker_count,
         "repeat": repeat,
         "task_layout": task_layout,
+        "series": SERIES,
+        # Recorded per run, so a report built on another machine still
+        # describes the one the sweep ran on.
+        "cpu_count": os.cpu_count(),
         "success": success,
         "wall_time": wall_time,
         "startup_overhead": startup_overhead,
@@ -153,10 +202,10 @@ def run_sweep() -> list[dict]:
     Returns:
         Every run's result record, in the order they completed.
     """
-    os.makedirs("reports", exist_ok=True)
+    os.makedirs(REPORTS_DIR, exist_ok=True)
     results = []
 
-    with open(RESULTS_PATH, "w") as results_file:
+    with open(results_path(RESULTS_PREFIX), "w") as results_file:
         for worker_count in BENCHMARK_WORKER_COUNTS:
             for repeat in range(BENCHMARK_REPEATS):
                 print(f"Running worker_count={worker_count} repeat={repeat}...")
@@ -185,7 +234,7 @@ def aggregate_by_worker_count(results: list[dict]) -> dict[int, dict]:
     """
     by_worker_count: dict[int, dict] = {}
 
-    for worker_count in BENCHMARK_WORKER_COUNTS:
+    for worker_count in sorted({r["worker_count"] for r in results}):
         runs = [r for r in results if r["worker_count"] == worker_count and r["success"]]
         if not runs:
             continue
@@ -209,6 +258,9 @@ def aggregate_by_worker_count(results: list[dict]) -> dict[int, dict]:
             # slightly in duration/sample count, and averaging across them
             # would need resampling that isn't worth it for a diagnostic chart.
             "cpu_samples": runs[0]["cpu_samples"],
+            # Runs from before cpu_count was recorded all came from the
+            # machine that has always built the report, so fall back to it.
+            "cpu_count": runs[0].get("cpu_count") or os.cpu_count(),
         }
 
     return by_worker_count
@@ -267,25 +319,32 @@ def build_breakdown_observations_html(by_worker_count: dict[int, dict]) -> str:
     )
 
 
-def build_speedup_chart(by_worker_count: dict[int, dict]) -> go.Figure:
-    """Line chart: measured speedup vs. an ideal-linear-scaling reference.
+def build_speedup_chart(series: dict[str, dict[int, dict]]) -> go.Figure:
+    """Line chart: measured speedup per series vs. an ideal-linear-scaling reference.
 
-    Speedup is relative to the smallest worker count actually benchmarked
-    (not hardcoded to 1), so this still works if BENCHMARK_WORKER_COUNTS
-    doesn't include 1.
+    Each series' speedup is relative to its own smallest worker count actually
+    benchmarked (not hardcoded to 1), so this still works if a sweep doesn't
+    include 1. With one series the line is just "Measured speedup"; with
+    several, each line is named after its series.
     """
-    worker_counts = sorted(by_worker_count)
-    baseline_wc = worker_counts[0]
-    baseline_time = by_worker_count[baseline_wc]["mean_wall_time"]
-
-    actual = [baseline_time / by_worker_count[wc]["mean_wall_time"] for wc in worker_counts]
-    ideal = [wc / baseline_wc for wc in worker_counts]
-
     fig = go.Figure()
-    fig.add_scatter(x=worker_counts, y=actual, mode="lines+markers", name="Measured speedup")
-    fig.add_scatter(x=worker_counts, y=ideal, mode="lines", name="Ideal (linear) speedup",
-                   line=dict(dash="dash"))
-    fig.update_layout(title=f"Speedup vs. worker count (relative to {baseline_wc} worker(s))",
+    baselines = set()
+    for name, by_worker_count in series.items():
+        worker_counts = sorted(by_worker_count)
+        baseline_wc = worker_counts[0]
+        baselines.add(baseline_wc)
+        baseline_time = by_worker_count[baseline_wc]["mean_wall_time"]
+        actual = [baseline_time / by_worker_count[wc]["mean_wall_time"] for wc in worker_counts]
+        label = "Measured speedup" if len(series) == 1 else f"Measured: {series_label(name)}"
+        fig.add_scatter(x=worker_counts, y=actual, mode="lines+markers", name=label)
+
+    baseline_wc = min(baselines)
+    all_worker_counts = sorted({wc for by_worker_count in series.values() for wc in by_worker_count})
+    fig.add_scatter(x=all_worker_counts, y=[wc / baseline_wc for wc in all_worker_counts], mode="lines",
+                    name="Ideal (linear) speedup", line=dict(dash="dash"))
+    relative_to = (f"{baseline_wc} worker(s)" if len(baselines) == 1
+                   else "each series' smallest worker count")
+    fig.update_layout(title=f"Speedup vs. worker count (relative to {relative_to})",
                       xaxis_title="Worker count", yaxis_title=f"Speedup (x{baseline_wc}-worker time)")
     return fig
 
@@ -310,7 +369,7 @@ def build_speedup_observations_html(by_worker_count: dict[int, dict]) -> str:
 
     if slowest_larger_wcs:
         worst_wc = max(slowest_larger_wcs, key=lambda wc: by_worker_count[wc]["mean_wall_time"])
-        cpu_count = os.cpu_count()
+        cpu_count = by_worker_count[worst_wc]["cpu_count"]
         text += (f" {worst_wc} workers was slower "
                 f"({by_worker_count[worst_wc]['mean_wall_time']:.1f}s) despite the extra parallelism.")
         if cpu_count and worst_wc >= cpu_count:
@@ -355,7 +414,7 @@ def build_cpu_observations_html(by_worker_count: dict[int, dict]) -> str:
     lo_wc, hi_wc = worker_counts[0], worker_counts[-1]
     lo_vals = [v for _, v in by_worker_count[lo_wc]["cpu_samples"]]
     hi_vals = [v for _, v in by_worker_count[hi_wc]["cpu_samples"]]
-    cpu_count = os.cpu_count()
+    cpu_count = by_worker_count[hi_wc]["cpu_count"]
 
     text = (f"Mean utilization rises from {statistics.mean(lo_vals):.0f}% at {lo_wc} worker(s) to "
            f"{statistics.mean(hi_vals):.0f}% at {hi_wc}, with the peak reaching "
@@ -424,13 +483,19 @@ def build_wait_observations_html(by_worker_count: dict[int, dict]) -> str:
 
 
 def build_summary_table_html(by_worker_count: dict[int, dict]) -> str:
-    """Small HTML table: mean wall time +/- stdev per worker count, with the formulas used."""
+    """Small HTML table: mean wall time +/- stdev per worker count."""
     rows = "\n".join(
         f"<tr><td>{wc}</td><td>{by_worker_count[wc]['mean_wall_time']:.2f}</td>"
         f"<td>{by_worker_count[wc]['stdev_wall_time']:.2f}</td></tr>"
         for wc in sorted(by_worker_count)
     )
-    formula_note = (
+    return (f"<table><thead><tr><th>Worker count</th><th>Mean wall time (s)</th>"
+            f"<th>Stdev (s)</th></tr></thead><tbody>{rows}</tbody></table>")
+
+
+def build_wall_time_note_html() -> str:
+    """The wall-time section's heading and the formulas behind its table(s)."""
+    return (
         "<h2>Wall time by worker count</h2>\n<div class=\"chart-note\">Mean wall time is the average measured subprocess "
         "duration across every successful repeat at that worker count: "
         "\\[\\bar{x} = \\frac{1}{n}\\sum_{i=1}^{n} x_i\\] "
@@ -441,25 +506,30 @@ def build_summary_table_html(by_worker_count: dict[int, dict]) -> str:
         "repeats succeeded at that worker count, and \\(\\bar{x}\\) (\"x-bar\") is "
         "the mean from the first formula, reused directly in the second.</div>"
     )
-    return (formula_note +
-           f"<table><thead><tr><th>Worker count</th><th>Mean wall time (s)</th>"
-           f"<th>Stdev (s)</th></tr></thead><tbody>{rows}</tbody></table>")
 
 
-def build_report(by_worker_count: dict[int, dict]) -> None:
-    """Write the 4 charts + summary table as an HTML fragment.
+def build_report(series: dict[str, dict[int, dict]]) -> None:
+    """Write the summary table(s) and 4 charts as an HTML fragment.
 
-    This is a fragment (a <section>, not a full <html> document) so
-    build_report.py (not yet built) can combine it with the correctness
-    section into one docs/index.html sharing a single plotly.js load.
-    include_plotlyjs='cdn' is used here anyway so the fragment also renders
-    correctly if opened directly, ahead of that final assembly step.
+    This is a fragment (a <section>, not a full <html> document) that
+    scripts/report/build_report.py combines into the site, sharing a single
+    plotly.js load. include_plotlyjs='cdn' is used here anyway so the
+    fragment also renders correctly if opened directly.
+
+    Args:
+        series: Series name -> its aggregate_by_worker_count summary. With one
+            series the fragment has a single table and chart per section; with
+            several, the speedup chart draws one line per series and every other
+            table and chart repeats once per series, labelled with its name.
     """
     os.makedirs(BENCHMARK_REPORT_DIR, exist_ok=True)
+    several = len(series) > 1
 
+    # (heading, per-series chart builder or None for the shared speedup chart,
+    #  note, per-series observations builder)
     charts = [
         ("Per-task time breakdown",
-         build_breakdown_chart(by_worker_count),
+         build_breakdown_chart,
          "Average time a single task spends in each phase, by worker count. Bars are "
          "grouped, not stacked: these phases overlap once more than one worker runs, "
          "so this chart shows composition, not total duration (see Speedup for that). "
@@ -481,9 +551,9 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
          "pq.write_table. Consistently the smallest component here; not CPU-bound, so "
          "it isn't expected to change with worker count.</li>"
          "</ul>",
-         build_breakdown_observations_html(by_worker_count)),
+         build_breakdown_observations_html),
         ("Speedup vs. worker count",
-         build_speedup_chart(by_worker_count),
+         None,
          "Measured wall-clock speedup against an ideal linear-scaling reference line, "
          "relative to the smallest worker count benchmarked (\\(N_{baseline}\\)): "
          "\\[\\text{Speedup}(N) = \\frac{T_{baseline}}{T_N} \\qquad "
@@ -491,34 +561,59 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
          "The closer the measured line tracks the ideal line, the more effectively "
          "extra workers are being used; a line flattening below ideal means "
          "diminishing returns.",
-         build_speedup_observations_html(by_worker_count)),
+         build_speedup_observations_html),
         ("CPU utilization over time",
-         build_cpu_utilization_chart(by_worker_count),
+         build_cpu_utilization_chart,
          "Whole-machine CPU utilization sampled over one representative run per worker "
          "count. Higher, more sustained utilization means the workers are actually "
          "kept busy; a run that finishes faster but with low utilization suggests the "
          "bottleneck isn't CPU.",
-         build_cpu_observations_html(by_worker_count)),
+         build_cpu_observations_html),
         ("Per-task time distribution",
-         build_time_distribution_chart(by_worker_count),
+         build_time_distribution_chart,
          "Full distribution (not just the mean) of each task's wait/compute/write "
          "time, grouped by worker count. Box plots surface spread and outliers an "
          "average alone would hide. For example, wait time's spread narrowing as worker "
          "count grows is a stronger signal of reduced queueing than the mean alone.",
-         build_wait_observations_html(by_worker_count)),
+         build_wait_observations_html),
     ]
-    chart_html = "\n".join(
-        f"<h2>{heading}</h2>\n<div class=\"chart-note\">{note}</div>\n" +
-        fig.to_html(full_html=False, include_plotlyjs="cdn" if i == 0 else False) +
-        (observations or "")
-        for i, (heading, fig, note, observations) in enumerate(charts)
-    )
+    plotlyjs_included = False
 
+    def figure_html(fig: go.Figure) -> str:
+        """One chart's HTML; only the fragment's first chart embeds the plotly.js CDN tag."""
+        nonlocal plotlyjs_included
+        html = fig.to_html(full_html=False, include_plotlyjs=False if plotlyjs_included else "cdn")
+        plotlyjs_included = True
+        return html
+
+    def labelled(observations: str, name: str) -> str:
+        """Observations for one series, headed with its name when there are several."""
+        return (observations.replace("<h3>Observations</h3>", f"<h3>Observations: {series_label(name)}</h3>")
+                if several else observations)
+
+    blocks = []
+    for heading, build_chart, note, build_observations in charts:
+        block = f"<h2>{heading}</h2>\n<div class=\"chart-note\">{note}</div>\n"
+        if build_chart is None:
+            block += figure_html(build_speedup_chart(series))
+            block += "".join(labelled(build_observations(summary), name) for name, summary in series.items())
+        else:
+            for name, summary in series.items():
+                fig = build_chart(summary)
+                if several:
+                    fig.update_layout(title_text=f"{fig.layout.title.text}: {series_label(name)}")
+                block += figure_html(fig) + labelled(build_observations(summary), name)
+        blocks.append(block)
+
+    tables = "".join(
+        (f"<h3>{series_label(name)}</h3>\n" if several else "") + build_summary_table_html(summary)
+        for name, summary in series.items()
+    )
     section_html = (
         "<section id=\"performance\">\n"
         f"{KATEX_CDN_HTML}\n"
-        f"{build_summary_table_html(by_worker_count)}\n"
-        f"{chart_html}\n"
+        f"{build_wall_time_note_html()}{tables}\n"
+        + "\n".join(blocks) + "\n"
         "</section>\n"
     )
 
@@ -526,15 +621,24 @@ def build_report(by_worker_count: dict[int, dict]) -> None:
     with open(output_path, "w") as fragment_file:
         fragment_file.write(section_html)
 
-    print(f"Wrote {output_path}")
+    print(f"Wrote {output_path} from {len(series)} series: {', '.join(series)}")
 
 
 if __name__ == "__main__":
-    results = run_sweep()
-    by_worker_count = aggregate_by_worker_count(results)
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--report-only", action="store_true",
+                        help="rebuild the fragment from saved results without running a sweep")
+    args = parser.parse_args()
 
-    if not by_worker_count:
-        print("No successful runs -- nothing to report.")
+    if not args.report_only:
+        run_sweep()
+
+    # Every saved series, not just this sweep's, so sweeping one dataset or
+    # machine keeps the others on the page.
+    series = {name: summary for name, results in load_all_series(RESULTS_PREFIX).items()
+              if (summary := aggregate_by_worker_count(results))}
+    if not series:
+        print("No successful runs in any series -- nothing to report.")
         sys.exit(1)
 
-    build_report(by_worker_count)
+    build_report(series)

@@ -13,17 +13,21 @@ goes first alternates by repeat, so slow drift over the sweep (thermal
 throttling, background load) lands on both layouts equally instead of
 favouring whichever ran first.
 
-Writes one JSON line per run to reports/task_layout_results.jsonl (kept
-separate from benchmark.py's reports/benchmark_results.jsonl, which the
-site's headline numbers read), then BENCHMARK_REPORT_DIR/_task_layout_section.html,
-an HTML fragment for the site's Experiments page: a comparison table, a chart,
-and a table of where the task compute goes. The raw results are also copied
-to BENCHMARK_REPORT_DIR/experiments_data/ so the page can link them (reports/
-itself isn't published).
+Like benchmark.py, each sweep is a series (one dataset version on one
+machine) with its own results file, reports/task_layout_results_<version>_<machine>.jsonl
+(kept separate from benchmark.py's, which the site's headline numbers read).
+The published experiment is the v1.0-mini sweep on the laptop
+(PUBLISHED_SERIES): for it, the script writes
+BENCHMARK_REPORT_DIR/_task_layout_section.html, an HTML fragment for the
+article page (a comparison table, a chart, and a table of where the task
+compute goes), and copies the raw results to BENCHMARK_REPORT_DIR/experiments_data/
+so the page can link them (reports/ itself isn't published). Any other
+series writes its fragment to reports/ instead, so it can't replace the
+published experiment.
 
 Run with: python benchmark_task_layout.py (from the repo root).
 For a tighter comparison: BENCHMARK_REPEATS=5 python benchmark_task_layout.py
-To rebuild the fragment from the last sweep without rerunning it:
+To rebuild the fragment from this series' saved results without rerunning it:
 python benchmark_task_layout.py --report-only
 """
 
@@ -38,10 +42,14 @@ import plotly.graph_objects as go
 from av_data_pipeline.config import (
     BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS, BENCHMARK_REPORT_DIR,
 )
-from benchmark import run_partition_once
+from benchmark import REPORTS_DIR, SERIES, results_path, run_partition_once
 from report.html import REPO_URL
 
-RESULTS_PATH = "reports/task_layout_results.jsonl"
+RESULTS_PREFIX = "task_layout_results_"
+# The sweep the Experiments article is about; only it is published.
+PUBLISHED_SERIES = "v1.0-mini_laptop"
+# The published copy keeps its original name, so the article's link to it stays valid.
+PUBLISHED_RESULTS_NAME = "task_layout_results.jsonl"
 PUBLISHED_DATA_DIR = "experiments_data"  # under BENCHMARK_REPORT_DIR
 LAYOUTS = ("consolidated", "split")
 LAYOUT_LABELS = {"consolidated": "2 tasks/batch (current)", "split": "4 tasks/batch (earlier design)"}
@@ -53,10 +61,10 @@ def run_sweep() -> list[dict]:
     Returns:
         Every run's result record, in the order they completed.
     """
-    os.makedirs("reports", exist_ok=True)
+    os.makedirs(REPORTS_DIR, exist_ok=True)
     results = []
 
-    with open(RESULTS_PATH, "w") as results_file:
+    with open(results_path(RESULTS_PREFIX), "w") as results_file:
         for worker_count in BENCHMARK_WORKER_COUNTS:
             for repeat in range(BENCHMARK_REPEATS):
                 # Alternate which layout goes first, so neither one always
@@ -74,8 +82,8 @@ def run_sweep() -> list[dict]:
 
 
 def load_results() -> list[dict]:
-    """The last sweep's result records, read back from RESULTS_PATH."""
-    with open(RESULTS_PATH) as results_file:
+    """This series' last sweep, read back from its results file."""
+    with open(results_path(RESULTS_PREFIX)) as results_file:
         return [json.loads(line) for line in results_file if line.strip()]
 
 
@@ -196,12 +204,20 @@ def build_compute_table_html(summary: dict[str, dict[int, dict]]) -> str:
 
 
 def build_report(summary: dict[str, dict[int, dict]]) -> None:
-    """Write the comparison fragment, and publish a copy of the raw results next to it."""
-    os.makedirs(BENCHMARK_REPORT_DIR, exist_ok=True)
-    data_dir = os.path.join(BENCHMARK_REPORT_DIR, PUBLISHED_DATA_DIR)
-    os.makedirs(data_dir, exist_ok=True)
-    shutil.copy(RESULTS_PATH, data_dir)
-    data_link = f"{PUBLISHED_DATA_DIR}/{os.path.basename(RESULTS_PATH)}"
+    """Write the comparison fragment, and publish a copy of the raw results next to it.
+
+    Only PUBLISHED_SERIES is published. Any other series' fragment goes to
+    reports/_task_layout_section_<series>.html, unpublished, so a sweep of a
+    different dataset or machine can't replace the experiment the article describes.
+    """
+    published = SERIES == PUBLISHED_SERIES
+    output_dir = BENCHMARK_REPORT_DIR if published else REPORTS_DIR
+    os.makedirs(output_dir, exist_ok=True)
+    data_link = f"{PUBLISHED_DATA_DIR}/{PUBLISHED_RESULTS_NAME}"
+    if published:
+        data_dir = os.path.join(BENCHMARK_REPORT_DIR, PUBLISHED_DATA_DIR)
+        os.makedirs(data_dir, exist_ok=True)
+        shutil.copy(results_path(RESULTS_PREFIX), os.path.join(data_dir, PUBLISHED_RESULTS_NAME))
 
     n = min(summary[layout][wc]["n"] for layout in LAYOUTS for wc in _worker_counts(summary))
     chart = build_bar_chart(summary, "work", "Time after the first task starts, by task layout")
@@ -224,16 +240,20 @@ def build_report(summary: dict[str, dict[int, dict]]) -> None:
         "timing, so queue wait and startup are excluded.</div>\n"
         f"{build_compute_table_html(summary)}\n"
         f"<p class=\"chart-note\">Raw results, one JSON line per run: "
-        f"<a href=\"{data_link}\"><code>{os.path.basename(RESULTS_PATH)}</code></a>. "
+        f"<a href=\"{data_link}\"><code>{PUBLISHED_RESULTS_NAME}</code></a>. "
         f"Produced by <a href=\"{REPO_URL}/blob/main/benchmark_task_layout.py\"><code>benchmark_task_layout.py</code></a>.</p>\n"
         "</section>\n"
     )
 
-    output_path = os.path.join(BENCHMARK_REPORT_DIR, "_task_layout_section.html")
+    fragment_name = "_task_layout_section.html" if published else f"_task_layout_section_{SERIES}.html"
+    output_path = os.path.join(output_dir, fragment_name)
     with open(output_path, "w") as fragment_file:
         fragment_file.write(section_html)
 
-    print(f"Wrote {output_path} and {os.path.join(data_dir, os.path.basename(RESULTS_PATH))}")
+    if published:
+        print(f"Wrote {output_path} and {os.path.join(BENCHMARK_REPORT_DIR, PUBLISHED_DATA_DIR, PUBLISHED_RESULTS_NAME)}")
+    else:
+        print(f"Wrote {output_path} (series {SERIES}; only {PUBLISHED_SERIES} is published)")
 
 
 if __name__ == "__main__":
