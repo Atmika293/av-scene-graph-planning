@@ -35,7 +35,9 @@ together: each camera's frame is the nearest one to the keyframe, so "synced" al
 building on it.
 
 ## 2 · Ingestion module and Parquet tables <span class="badge done">Done</span> {: #ingestion }
-{{dates: ingestion.py utils.py src/av_scene_graph_planning/columns.py src/av_scene_graph_planning/ingestion.py src/av_scene_graph_planning/utils.py src/av_data_pipeline/nuscenes.py src/av_data_pipeline/schema.py src/av_data_pipeline/table.py scripts/verify_sample_tokens.py scripts/validation/verify_sample_tokens.py scripts/verify_ingestion_keys.py scripts/validation/verify_ingestion_keys.py scripts/verify_table_rows.py scripts/validation/verify_table_rows.py}} · [checks](validation.html#ingestion)
+<!-- Hand-dated: later fix:/feat: commits to ingestion.py and the ingestion checks (the
+duplicate last sample, the whole-export check) were made for the full-dataset run. -->
+Sep 13 – Nov 1, 2026 · [checks](validation.html#ingestion)
 {: .meta }
 <div class="tags"><span class="tag">PyArrow</span> <span class="tag">Schema design</span></div>
 
@@ -212,7 +214,9 @@ that they have to report, so a pass means something.
   anything else that moved leaves a trail, and only the keyframe has boxes to explain it.
 
 ## 7 · Experiments: testing the Ray task-layout claim <span class="badge done">Done</span> {: #experiments }
-{{dates: benchmark_task_layout.py}} · [experiment](experiment-ray-task-layout.html)
+<!-- Hand-dated: the later feat: commit giving benchmark_task_layout.py one results file per
+dataset and machine was made for the full-dataset run. -->
+Nov 16, 2026 · [experiment](experiment-ray-task-layout.html)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Experiment design</span></div>
 
