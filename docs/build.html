@@ -186,9 +186,9 @@ and table-building all read the same names. Row builders flatten each sample's a
 into rows validated against explicit <code>pyarrow</code> schemas.</p>
 <p><strong>How I checked it.</strong> Three scripts, each against something independent of the code under
 test: sample traversal against nuScenes' own table scan, every ingested field against the raw
-devkit record (64,192 values), and every table row against the
+devkit record (63,096 values), and every table row against the
 schema plus a small re-indexer written separately from the row builders
-(136,616 values).</p>
+(134,174 values).</p>
 <p><strong>What broke.</strong> Running the checks found real bugs: a key renamed in one place but not its
 callers (it crashed <code>verify_ingestion_keys.py</code>), schema literals that weren't valid
 <code>pyarrow</code> schemas, annotation rows built from the wrong column map, and a call to a function
