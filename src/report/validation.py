@@ -47,6 +47,13 @@ def _tally(s: dict, unit: str) -> tuple[str, str]:
     return status, f"{s['verified']:,} / {s['total']:,} {unit}"
 
 
+def _table_counts(s: dict) -> tuple[str, str]:
+    """Pass when every table check verified every row; result text leads with the rows read."""
+    status = "pass" if s["verified"] == s["total"] else "fail"
+    return status, (f"{s['rows']:,} rows across {s['tables']} tables; "
+                    f"{s['verified']:,} / {s['total']:,} row checks pass")
+
+
 def _projection_stages(s: dict) -> tuple[str, str]:
     """Pass when every projection stage matched the devkit fork on every corner set."""
     ok = all(v == t for v, t in s["stages"].values())
@@ -139,6 +146,11 @@ CHECKS = [
           "Target schema's column names + an independent re-indexer (not the code under test)",
           "Columns drifting from the schema; a row built by the wrong builder",
           "table_rows", lambda s: _tally(s, "columns + values + smoke tests")),
+    Check("ingestion", "Whole-export completeness", "verify_table_counts.py",
+          "nuScenes' own sample, sample_data and sample_annotation tables, for every scene",
+          "A batch lost or written twice, records repeated, leftover files from an earlier run, "
+          "rows filed under the wrong sample, boxes pointing at records that weren't exported",
+          "table_counts", _table_counts),
     Check("projection", "Per-stage transform", "evaluate_projections.py",
           "Intermediate corners from a fork of the devkit's 2D exporter "
           "(<code>export_2d_annotations_debug.py</code>)",

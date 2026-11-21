@@ -91,6 +91,17 @@ def table_rows() -> dict | None:
     }
 
 
+def table_counts() -> dict | None:
+    """verify_table_counts.py: overall tally across every table check, and the rows read."""
+    text = _read("verify_table_counts.txt")
+    if text is None:
+        return None
+    verified, total = _tally(text)
+    rows = sum(int(n) for n in re.findall(r"^Rows read: (\d+)$", text, re.MULTILINE))
+    tables = len(re.findall(r"^--- ", text, re.MULTILINE))
+    return {"verified": verified, "total": total, "rows": rows, "tables": tables}
+
+
 def projection() -> dict | None:
     """evaluate_projections.py: per-stage corner tallies, final-box IoU stats, and missing/extra box counts."""
     text = _read("evaluate_projections.txt")
@@ -311,7 +322,7 @@ def task_layout() -> dict | None:
 
 def all_stats() -> dict:
     """Every reader's result, keyed by reader name (None for a report not yet generated)."""
-    readers = [sample_tokens, ingestion_keys, table_rows, projection, box_containment,
+    readers = [sample_tokens, ingestion_keys, table_rows, table_counts, projection, box_containment,
                orientation, remap, intensity, raster, camera_matching, multisweep,
                benchmark, task_layout]
     return {reader.__name__: reader() for reader in readers}
