@@ -41,8 +41,8 @@ def get_sample_tokens_from_scene(nusc: NuScenes, scene_token: str) -> list[str]:
         sample_tokens.append(next_sample_token)
         sample_token = next_sample_token
 
-    sample_tokens.append(last_sample_token)
-
+    # The loop has already appended last_sample_token as its final step, so it
+    # isn't appended again here (doing so wrote every scene's last sample twice).
     return sample_tokens
 
 
@@ -74,8 +74,8 @@ def get_sample_token_from_scene_dict(nusc: NuScenes, scene_dict: dict) -> list[s
         sample_tokens.append(next_sample_token)
         sample_token = next_sample_token
 
-    sample_tokens.append(last_sample_token)
-
+    # The loop has already appended last_sample_token as its final step, so it
+    # isn't appended again here (doing so wrote every scene's last sample twice).
     return sample_tokens
 
 
