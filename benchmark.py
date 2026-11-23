@@ -134,13 +134,26 @@ class CPUSampler:
         self._thread.join(timeout=self.interval + 1)
 
 
+def in_flight_cap(worker_count: int) -> int:
+    """MAX_IN_FLIGHT for a run with worker_count workers: max(32, 2 x worker_count).
+
+    The driver builds each batch's manifest itself, one at a time, so a cap of
+    exactly worker_count would let a worker that just finished sit idle until
+    the next batch is built; twice the worker count keeps a queue waiting.
+    The floor of 32 is the fixed cap every earlier sweep used, so runs at up to
+    16 workers (all of the laptop's) still run exactly as those did.
+    """
+    return max(32, 2 * worker_count)
+
+
 def run_partition_once(worker_count: int, repeat: int, task_layout: str | None = None) -> dict:
     """Run partition.py once as a subprocess with NUM_CPUS=worker_count.
 
-    BATCH_SIZE/MAX_IN_FLIGHT are overridden (to 1 and 32) so there are
-    enough independent per-scene tasks to actually exercise worker_count
-    workers concurrently, regardless of config.toml's own partition.py
-    defaults (which are tuned for a real export run, not a benchmark).
+    BATCH_SIZE/MAX_IN_FLIGHT are overridden (to 1 and in_flight_cap()) so
+    there are enough independent per-scene tasks to actually exercise
+    worker_count workers concurrently, regardless of config.toml's own
+    partition.py defaults (which are tuned for a real export run, not a
+    benchmark).
 
     Args:
         worker_count: Value to set NUM_CPUS to for this run.
@@ -158,7 +171,7 @@ def run_partition_once(worker_count: int, repeat: int, task_layout: str | None =
     env = os.environ.copy()
     env["NUM_CPUS"] = str(worker_count)
     env["BATCH_SIZE"] = "1"
-    env["MAX_IN_FLIGHT"] = "32"
+    env["MAX_IN_FLIGHT"] = str(in_flight_cap(worker_count))
     # An emptied folder per run: earlier runs' files neither pile up nor sit
     # in the folder a later run writes to.
     output_root = os.path.join(BENCHMARK_OUTPUT_DIR, SERIES)

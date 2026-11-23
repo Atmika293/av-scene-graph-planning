@@ -9,6 +9,9 @@ output_root = "data/output"
 
 [partition]
 batch_size = 5
+# Cap on unfinished Ray tasks at once, so it also caps how many cores do work.
+# 8 suits the 8-core laptop; on a bigger machine set MAX_IN_FLIGHT to about
+# twice its cores (64 on a 32-core pod). The benchmark sets its own per run.
 max_in_flight = 8
 # How each batch's writes are split into Ray tasks: "consolidated" (2 tasks:
 # all 3 core tables in one, bboxes in the other) or "split" (4 tasks: one per
