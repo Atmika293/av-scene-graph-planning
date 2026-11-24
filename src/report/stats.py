@@ -229,6 +229,72 @@ def benchmark() -> dict | None:
     }
 
 
+def _sweep(series: str) -> dict | None:
+    """One benchmark series' scaling numbers, or None if its results file doesn't exist.
+
+    Mean wall time and startup overhead per worker count over successful runs; "work" is
+    wall time minus startup, the part extra workers can shrink. Mirrors
+    benchmark.scaling_summary, which draws the same numbers on the page.
+    """
+    text = _read(f"benchmark_results_{series}.jsonl")
+    if text is None:
+        return None
+    walls: dict[int, list[float]] = {}
+    startups: dict[int, list[float]] = {}
+    writes: dict[int, list[float]] = {}
+    cpus = batches = None
+    for line in text.splitlines():
+        run = json.loads(line)
+        if run["success"]:
+            walls.setdefault(run["worker_count"], []).append(run["wall_time"])
+            startups.setdefault(run["worker_count"], []).append(run["startup_overhead"])
+            writes.setdefault(run["worker_count"], []).extend(t["write_time"] for t in run["task_timings"])
+            cpus = run.get("cpu_count", cpus)
+            batches = len({t["label"].split(":")[0] for t in run["task_timings"]})
+    wall = {wc: statistics.mean(v) for wc, v in walls.items()}
+    work = {wc: wall[wc] - statistics.mean(startups[wc]) for wc in wall}
+    base, top = min(wall), max(wall)
+    best = min(wall, key=wall.get)
+    best_work = max(wall, key=lambda wc: work[base] / work[wc])
+    return {
+        "scenes": batches,  # every benchmark run uses one scene per batch
+        "cpus": cpus,
+        "best_workers": best,
+        "best_speedup": wall[base] / wall[best],
+        "max_workers": top,
+        "work_best_workers": best_work,
+        "work_speedup": work[base] / work[best_work],
+        "startup_share_max": 1 - work[top] / wall[top],
+        # The slowest worker count's mean Parquet write per task, in milliseconds.
+        "write_ms_max": 1000 * max(statistics.mean(v) for v in writes.values()),
+        "base_seconds": wall[base],
+        "best_seconds": wall[best],
+    }
+
+
+@cache
+def benchmark_trainval() -> dict | None:
+    """benchmark.py on the Runpod pod: v1.0-trainval's scaling, v1.0-mini's on the same pod, and the export check.
+
+    The export check is verify_table_counts.py run on the trainval sweep's last export
+    (reports/verify_table_counts_trainval_benchmark.txt), as export_check, a phrase for page
+    text that says so if that report hasn't been copied back.
+    """
+    trainval, mini = _sweep("v1.0-trainval_runpod"), _sweep("v1.0-mini_runpod")
+    if trainval is None or mini is None:
+        return None
+    stats = {**trainval, **{f"mini_{k}": v for k, v in mini.items()}}
+    stats["export_check"] = "has no completeness check on record yet"
+    check = _read("verify_table_counts_trainval_benchmark.txt")
+    if check is not None:
+        verified, total = _tally(check)
+        rows = sum(int(n) for n in re.findall(r"^Rows read: (\d+)$", check, re.MULTILINE))
+        # A phrase, so page text reports the check's actual outcome rather than assuming a pass.
+        stats["export_check"] = (f"passed every completeness check ({rows:,} rows)" if verified == total
+                                 else f"failed its completeness check ({verified:,} / {total:,} row checks)")
+    return stats
+
+
 @cache
 def camera_matching() -> dict | None:
     """check_camera_matching.py: sweep-camera pairs matching the brute-force nearest frame, plus its self-test."""
@@ -324,5 +390,5 @@ def all_stats() -> dict:
     """Every reader's result, keyed by reader name (None for a report not yet generated)."""
     readers = [sample_tokens, ingestion_keys, table_rows, table_counts, projection, box_containment,
                orientation, remap, intensity, raster, camera_matching, multisweep,
-               benchmark, task_layout]
+               benchmark, benchmark_trainval, task_layout]
     return {reader.__name__: reader() for reader in readers}

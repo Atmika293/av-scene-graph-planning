@@ -49,6 +49,7 @@ import time
 
 import psutil
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from av_data_pipeline.config import (
     NUSCENES_VERSION, BENCHMARK_WORKER_COUNTS, BENCHMARK_REPEATS,
@@ -65,6 +66,17 @@ SERIES = f"{NUSCENES_VERSION}_{BENCHMARK_MACHINE}"
 # Parent of each series' benchmark output folder; kept apart from OUTPUT_ROOT,
 # where a real export goes, since each run empties its folder first.
 BENCHMARK_OUTPUT_DIR = "data/benchmark_output"
+
+# Each machine gets its own results page: comparisons are only drawn within one
+# machine. The laptop's single-dataset sweep is the v1.0-mini page; a machine that
+# swept several datasets gets a page comparing them (see build_comparison_report).
+LAPTOP_MACHINE = "laptop"
+LAPTOP_FRAGMENT = "_performance_section.html"
+
+# One colour per dataset on the comparison page, smallest dataset first (Plotly's
+# first default colours, matching the v1.0-mini page); startup is drawn in grey.
+DATASET_COLORS = ["#636EFA", "#EF553B", "#00CC96", "#AB63FA"]
+STARTUP_COLOR = "#B6BBC4"
 
 
 def results_path(prefix: str, series: str = SERIES) -> str:
@@ -541,7 +553,7 @@ def build_wall_time_note_html() -> str:
     )
 
 
-def build_report(series: dict[str, dict[int, dict]]) -> None:
+def build_report(series: dict[str, dict[int, dict]], fragment_name: str = LAPTOP_FRAGMENT) -> None:
     """Write the summary table(s) and 4 charts as an HTML fragment.
 
     This is a fragment (a <section>, not a full <html> document) that
@@ -554,6 +566,7 @@ def build_report(series: dict[str, dict[int, dict]]) -> None:
             series the fragment has a single table and chart per section; with
             several, the speedup chart draws one line per series and every other
             table and chart repeats once per series, labelled with its name.
+        fragment_name: File name under BENCHMARK_REPORT_DIR to write.
     """
     os.makedirs(BENCHMARK_REPORT_DIR, exist_ok=True)
     several = len(series) > 1
@@ -650,11 +663,347 @@ def build_report(series: dict[str, dict[int, dict]]) -> None:
         "</section>\n"
     )
 
-    output_path = os.path.join(BENCHMARK_REPORT_DIR, "_performance_section.html")
+    output_path = os.path.join(BENCHMARK_REPORT_DIR, fragment_name)
     with open(output_path, "w") as fragment_file:
         fragment_file.write(section_html)
 
     print(f"Wrote {output_path} from {len(series)} series: {', '.join(series)}")
+
+
+def scene_count(results: list[dict]) -> int:
+    """Scenes one run processed: its distinct batches, since every benchmark run uses BATCH_SIZE=1."""
+    run = next(r for r in results if r["success"])
+    return len({task["label"].split(":")[0] for task in run["task_timings"]})
+
+
+def scaling_summary(by_worker_count: dict[int, dict]) -> dict:
+    """One dataset's scaling numbers, from its aggregate_by_worker_count summary.
+
+    "Work" is a run's wall time minus its startup overhead: the part extra
+    workers can actually shrink. Speedups are relative to the smallest worker
+    count benchmarked.
+    """
+    worker_counts = sorted(by_worker_count)
+    base = worker_counts[0]
+    wall = {wc: by_worker_count[wc]["mean_wall_time"] for wc in worker_counts}
+    startup = {wc: by_worker_count[wc]["mean_startup_overhead"] for wc in worker_counts}
+    work = {wc: wall[wc] - startup[wc] for wc in worker_counts}
+    speedup = {wc: wall[base] / wall[wc] for wc in worker_counts}
+    work_speedup = {wc: work[base] / work[wc] for wc in worker_counts}
+    return {
+        "worker_counts": worker_counts, "base": base, "max": worker_counts[-1],
+        "wall": wall, "startup": startup, "work": work,
+        "speedup": speedup, "work_speedup": work_speedup,
+        "best": min(worker_counts, key=wall.get),
+        "best_work": max(worker_counts, key=work_speedup.get),
+        "repeats": min(len(by_worker_count[wc]["wall_times"]) for wc in worker_counts),
+        "cpu_count": by_worker_count[worker_counts[-1]]["cpu_count"],
+    }
+
+
+def build_comparison_report(raw: dict[str, list[dict]], fragment_name: str) -> None:
+    """Write the page fragment comparing several datasets swept on one machine.
+
+    Every series in raw must come from the same machine, so the only thing that
+    differs between them is the dataset. Unlike build_report's per-series
+    charts, every chart and note here is about the comparison: wall-clock
+    speedup against speedup after startup, how each run splits into startup and
+    the time after it, the average per-task wait/compute/write, and CPU use. The notes are computed from the results, so
+    they stay true if the sweeps are rerun.
+
+    Args:
+        raw: Series name -> its saved result records, all from one machine.
+        fragment_name: File name under BENCHMARK_REPORT_DIR to write.
+    """
+    os.makedirs(BENCHMARK_REPORT_DIR, exist_ok=True)
+    summaries = {name: aggregate_by_worker_count(results) for name, results in raw.items()}
+    scenes = {name: scene_count(results) for name, results in raw.items()}
+    names = sorted(summaries, key=scenes.get)  # smallest dataset first
+    stats = {name: scaling_summary(summaries[name]) for name in names}
+    version = {name: name.rpartition("_")[0] for name in names}
+    color = {name: DATASET_COLORS[i % len(DATASET_COLORS)] for i, name in enumerate(names)}
+    small, large = names[0], names[-1]
+    cpus = stats[large]["cpu_count"]
+    base = stats[large]["base"]
+    all_worker_counts = sorted({wc for name in names for wc in stats[name]["worker_counts"]})
+    worker_list = ", ".join(str(wc) for wc in all_worker_counts)
+
+    plotlyjs_included = False
+
+    def figure_html(fig: go.Figure) -> str:
+        """One chart's HTML; only the fragment's first chart embeds the plotly.js CDN tag."""
+        nonlocal plotlyjs_included
+        html = fig.to_html(full_html=False, include_plotlyjs=False if plotlyjs_included else "cdn")
+        plotlyjs_included = True
+        return html
+
+    def note(text: str) -> str:
+        return f'<div class="chart-note">{text}</div>\n'
+
+    def observations(items: list[str]) -> str:
+        return ("<h3>Observations</h3>\n" + note(
+            '<ul style="margin:4px 0 8px 20px; padding:0;">'
+            + "".join(f"<li>{item}</li>" for item in items) + "</ul>"))
+
+    # At a glance: one row per dataset.
+    rows = "".join(
+        f"<tr><td>{version[n]}</td><td>{scenes[n]:,}</td>"
+        f"<td>{stats[n]['wall'][stats[n]['base']]:.1f} s</td>"
+        f"<td>{stats[n]['wall'][stats[n]['best']]:.1f} s at {stats[n]['best']} workers</td>"
+        f"<td>{stats[n]['speedup'][stats[n]['best']]:.2f}×</td>"
+        f"<td>{stats[n]['work_speedup'][stats[n]['best_work']]:.2f}× at {stats[n]['best_work']} workers</td></tr>"
+        for n in names)
+    glance = (
+        "<h2>At a glance</h2>\n"
+        + note(f"Each dataset's mean wall time at {base} worker{'s' if base > 1 else ''} and at its fastest "
+               "worker count, and how much faster the fastest was. The last column leaves out each "
+               "run's fixed startup cost (see <a href=\"#scaling-timing\">Wall time and time after "
+               "startup</a>).")
+        + "<table><thead><tr><th>Dataset</th><th>Scenes</th>"
+        f"<th>{base} worker{'s' if base > 1 else ''}</th><th>Fastest</th><th>Wall-clock speedup</th>"
+        f"<th>Speedup after startup</th></tr></thead><tbody>{rows}</tbody></table>\n")
+
+    method = (
+        "<h2>How it was measured</h2>\n"
+        + note('<ul style="margin:4px 0 8px 20px; padding:0;">'
+               f"<li><strong>One machine:</strong> every run of both datasets on the same Runpod CPU pod "
+               f"with {cpus} CPUs, so the dataset is the only thing that differs.</li>"
+               f"<li><strong>Runs:</strong> each worker count ({worker_list}) run {stats[large]['repeats']} "
+               "times as a fresh process, startup included, with one scene per batch and at most "
+               "max(32, 2 × workers) tasks in flight. The harness is the same as for the "
+               "<a href=\"result-ray-scaling.html\">v1.0-mini page</a>.</li>"
+               f"<li><strong>CPU use:</strong> read from the pod's own share of the host, so 100% "
+               f"means all {cpus} of its CPUs busy.</li>"
+               "<li><strong>Not compared with the laptop:</strong> the v1.0-mini page's results come "
+               "from a different machine, so its times are not set against these.</li></ul>"))
+
+    # Wall time and time after startup: what each is, how it's averaged, and a table per dataset.
+    timing_tables = "".join(
+        f"<h3>{version[n]}</h3>\n<table><thead><tr><th>Worker count</th><th>Mean wall time (s)</th>"
+        "<th>Stdev (s)</th><th>Mean startup (s)</th><th>Mean time after startup (s)</th></tr></thead><tbody>"
+        + "".join(f"<tr><td>{wc}</td><td>{stats[n]['wall'][wc]:.1f}</td>"
+                  f"<td>{summaries[n][wc]['stdev_wall_time']:.1f}</td>"
+                  f"<td>{stats[n]['startup'][wc]:.1f}</td><td>{stats[n]['work'][wc]:.1f}</td></tr>"
+                  for wc in stats[n]["worker_counts"])
+        + "</tbody></table>\n"
+        for n in names)
+    timing = (
+        '<h2 id="scaling-timing">Wall time and time after startup</h2>\n'
+        + note("Every run is a fresh <code>partition.py</code> process, timed by the benchmark from "
+               "launch to exit and split where the first task starts on a worker:"
+               '<ul style="margin:4px 0 8px 20px; padding:0;">'
+               "<li><strong>Wall time \\(T\\):</strong> from launching the process to its exit. This is "
+               "what you actually wait for.</li>"
+               "<li><strong>Startup \\(S\\):</strong> from launch to the first task starting: Python "
+               "and imports, ray.init() starting the workers, loading the devkit's tables, and building "
+               "the first batch's input. It happens once per run, before anything is parallel, so more "
+               "workers can't shrink it.</li>"
+               "<li><strong>Time after startup \\(T - S\\):</strong> the rest of the run. Mostly the "
+               "tasks running across the workers, but also the driver building each later batch's "
+               "input one at a time, collecting every task's result, and shutting down.</li></ul>"
+               "Each worker count runs several times, and the tables give means over its successful "
+               "runs. For a worker count with \\(n\\) runs, where \\(T_i\\) and \\(S_i\\) are run "
+               "\\(i\\)'s wall time and startup: "
+               "\\[\\bar{T} = \\frac{1}{n}\\sum_{i=1}^{n} T_i \\qquad "
+               "\\bar{S} = \\frac{1}{n}\\sum_{i=1}^{n} S_i \\qquad "
+               "\\text{time after startup} = \\bar{T} - \\bar{S}\\] "
+               "Stdev is the sample standard deviation of the wall times, "
+               "\\(s = \\sqrt{\\frac{1}{n-1}\\sum_{i=1}^{n} (T_i - \\bar{T})^2}\\): how much the "
+               "repeats differ from each other.")
+        + timing_tables)
+
+    # Speedup: wall clock and after startup, both axes log so ideal scaling is a diagonal.
+    fig = go.Figure()
+    for n in names:
+        s = stats[n]
+        fig.add_scatter(x=s["worker_counts"], y=[s["speedup"][wc] for wc in s["worker_counts"]],
+                        mode="lines+markers", name=f"{version[n]}: wall clock",
+                        line=dict(color=color[n], width=2), marker=dict(size=8))
+        fig.add_scatter(x=s["worker_counts"], y=[s["work_speedup"][wc] for wc in s["worker_counts"]],
+                        mode="lines+markers", name=f"{version[n]}: after startup",
+                        line=dict(color=color[n], width=2, dash="dot"),
+                        marker=dict(size=8, symbol="circle-open"))
+    fig.add_scatter(x=all_worker_counts, y=[wc / base for wc in all_worker_counts], mode="lines",
+                    name="Ideal (linear)", line=dict(color="#888888", width=1.5, dash="dash"))
+    ticks = dict(type="log", tickvals=all_worker_counts, ticktext=[str(wc) for wc in all_worker_counts])
+    fig.update_layout(title=dict(text="Speedup vs. worker count (both axes log scale)"),
+                      xaxis=dict(title=dict(text="Worker count"), **ticks),
+                      yaxis=dict(title=dict(text=f"Speedup (× the {base}-worker time)"), **ticks))
+
+    speed_items = []
+    for n in names:
+        s = stats[n]
+        best, top = s["best"], s["max"]
+        item = (f"<strong>{version[n]}</strong> was fastest at {best} workers, "
+                f"{s['speedup'][best]:.2f}× the {s['base']}-worker time")
+        if best == top:
+            item += ", the largest count tested, and still improving."
+        else:
+            rise = s["wall"][top] - s["wall"][best]
+            startup_rise = s["startup"][top] - s["startup"][best]
+            item += (f". Past that it slowed down: from {best} to {top} workers its wall time rose "
+                     f"{rise:.1f} s")
+            item += (f", {startup_rise:.1f} s of it from a longer startup (starting more workers)."
+                     if startup_rise > 0 else ".")
+            item += (f" With {scenes[n]} scenes there are only {scenes[n]} batches of work to share out, "
+                     "so beyond a few workers there's little left for them to do.")
+        item += (f" Leaving out startup, its time after startup was {s['work_speedup'][s['best_work']]:.2f}× faster "
+                 f"at {s['best_work']} workers.")
+        speed_items.append(item)
+    speed_items.append("The gap between each dataset's solid and dotted lines is its fixed startup "
+                       "cost: more workers shrink the time after startup, but not the startup.")
+    speedup = (
+        '<h2 id="scaling-speedup">Speedup vs. worker count</h2>\n'
+        + note("Two speedups per dataset, each relative to its own "
+               f"{base}-worker runs, where \\(T_N\\) and \\(S_N\\) are the mean wall time and mean "
+               "startup with \\(N\\) workers (see "
+               "<a href=\"#scaling-timing\">Wall time and time after startup</a>): "
+               "\\[\\text{wall clock} = \\frac{T_1}{T_N} \\qquad "
+               "\\text{after startup} = \\frac{T_1 - S_1}{T_N - S_N}\\] "
+               "The dashed line is ideal linear scaling.")
+        + figure_html(fig) + observations(speed_items))
+
+    # Where the time goes: wall time stacked as startup + work, one chart per dataset.
+    split_charts, split_items = "", []
+    for n in names:
+        s = stats[n]
+        labels = [str(wc) for wc in s["worker_counts"]]
+        fig = go.Figure()
+        fig.add_bar(x=labels, y=[s["startup"][wc] for wc in s["worker_counts"]], name="Startup",
+                    marker=dict(color=STARTUP_COLOR))
+        fig.add_bar(x=labels, y=[s["work"][wc] for wc in s["worker_counts"]], name="After startup",
+                    marker=dict(color=color[n]))
+        fig.update_layout(barmode="stack", bargap=0.3,
+                          title=dict(text=f"Mean wall time, split: {version[n]}"),
+                          xaxis=dict(title=dict(text="Worker count"), type="category"),
+                          yaxis=dict(title=dict(text="Seconds")))
+        split_charts += figure_html(fig)
+        share = {wc: s["startup"][wc] / s["wall"][wc] for wc in s["worker_counts"]}
+        split_items.append(f"<strong>{version[n]}:</strong> startup is {share[s['base']]:.0%} of the run "
+                           f"at {s['base']} worker{'s' if s['base'] > 1 else ''} and "
+                           f"{share[s['max']]:.0%} at {s['max']} workers.")
+    split_items.append(f"Startup grows with the dataset, because it includes loading the devkit's "
+                       f"tables: {stats[small]['startup'][stats[small]['base']]:.0f} s for "
+                       f"{version[small]} against {stats[large]['startup'][stats[large]['base']]:.0f} s "
+                       f"for {version[large]} at {base} worker{'s' if base > 1 else ''}. No number of "
+                       "workers removes it, so it is what caps the wall-clock speedup above.")
+    ratio = stats[large]["wall"][base] / stats[small]["wall"][base]
+    split = (
+        "<h2>Where the time goes</h2>\n"
+        + note("Each bar is one worker count's mean wall time, split into startup and the time after "
+               "it; the two happen one after the other, so they add up to the whole run. The time after "
+               "startup is mostly the tasks running across the workers, but it also holds the driver "
+               "building each later batch's input one at a time, collecting results and shutting down. The datasets get separate charts because "
+               f"their times differ about {ratio:.0f} times at {base} worker{'s' if base > 1 else ''}.")
+        + split_charts + observations(split_items))
+
+    # Per-task time: wait, compute and write, one panel each, a line per dataset.
+    phases = [("mean_wait", "Wait"), ("mean_compute", "Compute"), ("mean_write", "Disk write")]
+    fig = make_subplots(rows=1, cols=3, subplot_titles=[label for _, label in phases],
+                        horizontal_spacing=0.08)
+    for n in names:
+        wcs = stats[n]["worker_counts"]
+        for col, (key, _) in enumerate(phases, start=1):
+            fig.add_scatter(x=wcs, y=[summaries[n][wc][key] for wc in wcs], mode="lines+markers",
+                            name=version[n], legendgroup=n, showlegend=col == 1,
+                            line=dict(color=color[n], width=2), marker=dict(size=8), row=1, col=col)
+    for col in range(1, 4):
+        fig.update_xaxes(title=dict(text="Worker count"), type="log", tickvals=all_worker_counts,
+                         ticktext=[str(wc) for wc in all_worker_counts], row=1, col=col)
+        fig.update_yaxes(rangemode="tozero", row=1, col=col)
+    fig.update_yaxes(title=dict(text="Seconds per task (mean)"), row=1, col=1)
+    fig.update_layout(title=dict(text="Average time per task, by phase"), height=420)
+
+    def per_task(n: str, key: str, wc: int) -> float:
+        return summaries[n][wc][key]
+
+    def first_and_rest(n: str, wc: int) -> tuple[float, float | None]:
+        """Mean compute of each run's first wc tasks to start (one per worker, each also loading
+        the pipeline's code on that worker) and of the tasks after them (None if there are none)."""
+        first, rest = [], []
+        for run in raw[n]:
+            if run["success"] and run["worker_count"] == wc:
+                ordered = sorted(run["task_timings"], key=lambda t: t["received_at"])
+                first += [t["compute_time"] for t in ordered[:wc]]
+                rest += [t["compute_time"] for t in ordered[wc:]]
+        return statistics.mean(first), statistics.mean(rest) if rest else None
+
+    def cpu_after_startup(n: str, wc: int) -> float:
+        """Mean CPU use over the representative run's time after startup."""
+        run = next(r for r in raw[n] if r["success"] and r["worker_count"] == wc)
+        return statistics.mean(v for t, v in run["cpu_samples"] if t > run["startup_overhead"])
+
+    task_items = []
+    for n in names:
+        b, top = stats[n]["base"], stats[n]["max"]
+        task_items.append(
+            f"<strong>{version[n]}:</strong> wait falls from {per_task(n, 'mean_wait', b):.2f} s to "
+            f"{per_task(n, 'mean_wait', top):.2f} s between {b} and {top} workers, while compute rises "
+            f"from {per_task(n, 'mean_compute', b):.3f} s to {per_task(n, 'mean_compute', top):.3f} s "
+            f"({per_task(n, 'mean_compute', top) / per_task(n, 'mean_compute', b):.1f}×).")
+    lb, ltop = stats[large]["base"], stats[large]["max"]
+    first_b, rest_b = first_and_rest(large, lb)
+    first_top, rest_top = first_and_rest(large, ltop)
+    small_tasks = len(next(r for r in raw[small] if r["success"])["task_timings"])
+    task_items.append(
+        f"<strong>Part of the rise is a one-off cost.</strong> A worker's first task is slower, most "
+        f"likely because it also loads the pipeline's code on that worker: on {version[large]} at {lb} worker{'s' if lb > 1 else ''} it took "
+        f"{first_b:.2f} s against {rest_b:.3f} s for later tasks, and {first_top:.2f} s at {ltop} "
+        f"workers, where {ltop} workers load at once. More workers means more first tasks. "
+        f"{version[small]} has only {small_tasks} tasks per run, so at {stats[small]['max']} workers "
+        + ("nearly every task is a worker's first, which accounts for most of its rise."
+           if small_tasks <= stats[small]["max"] else
+           "a large share of its tasks are a worker's first, which accounts for much of its rise."))
+    task_items.append(
+        f"<strong>The rest is tasks slowing each other down.</strong> Leaving out first tasks, "
+        f"{version[large]}'s compute still rises from {rest_b:.3f} s to {rest_top:.3f} s "
+        f"({rest_top / rest_b:.1f}×) between {lb} and {ltop} workers, though each task does the same "
+        f"work. The pod averaged {cpu_after_startup(large, ltop):.0f}% busy over the time after "
+        f"startup at {ltop} workers, so tasks aren't short of CPUs; they are probably competing for "
+        "something shared, such as memory bandwidth, which these runs don't measure. This is part of "
+        "why the speedup after startup stays below ideal.")
+    write_max = max(per_task(n, "mean_write", wc) for n in names for wc in stats[n]["worker_counts"])
+    task_items.append(f"<strong>Disk isn't a bottleneck.</strong> Writes average at most "
+                      f"{write_max * 1000:.0f} ms per task, for either dataset at any worker count.")
+    tasks = (
+        "<h2>Per-task time breakdown</h2>\n"
+        + note('Each task\'s time, averaged over every task in every repeat:<ul style="margin:4px 0 8px 20px; padding:0;">'
+               "<li><strong>Wait:</strong> from the driver submitting the task to it starting on a "
+               "worker, i.e. queueing for a free worker.</li>"
+               "<li><strong>Compute:</strong> building and projecting the batch's rows.</li>"
+               "<li><strong>Disk write:</strong> time inside pq.write_table.</li></ul>"
+               "Each batch has two tasks, a light one writing the core tables and a heavy one "
+               "projecting boxes, and the averages cover both. Tasks run at the same time on "
+               "different workers, so these don't add up to a run's wall time; the chart above "
+               "does that. Each panel has its own scale.")
+        + figure_html(fig) + observations(task_items))
+
+    # CPU use over time, one chart per dataset.
+    cpu_charts, cpu_items = "", [f"One fully busy CPU shows as {100 / cpus:.0f}%."]
+    for n in names:
+        fig = build_cpu_utilization_chart(summaries[n])
+        fig.update_layout(title=dict(text=f"CPU use over one run per worker count: {version[n]}"),
+                          yaxis=dict(title=dict(text=f"Share of the pod's {cpus} CPUs busy (%)")))
+        cpu_charts += figure_html(fig)
+        top = stats[n]["max"]
+        values = [v for _, v in summaries[n][top]["cpu_samples"]]
+        cpu_items.append(f"<strong>{version[n]}</strong> at {top} workers: mean "
+                         f"{statistics.mean(values):.0f}%, peak {max(values):.0f}%.")
+    cpu_items.append("The low stretch at the start of every run is startup, which happens mostly in "
+                     "a single process before any task begins.")
+    cpu = (
+        "<h2>CPU use over time</h2>\n"
+        + note("The share of the pod's CPUs busy, sampled every "
+               f"{BENCHMARK_CPU_SAMPLE_INTERVAL:g} s over one run per worker count.")
+        + cpu_charts + observations(cpu_items))
+
+    section_html = ('<section id="scaling">\n' f"{KATEX_CDN_HTML}\n"
+                    + glance + method + timing + speedup + split + tasks + cpu + "</section>\n")
+    output_path = os.path.join(BENCHMARK_REPORT_DIR, fragment_name)
+    with open(output_path, "w") as fragment_file:
+        fragment_file.write(section_html)
+
+    print(f"Wrote {output_path} comparing {len(names)} datasets: {', '.join(names)}")
 
 
 if __name__ == "__main__":
@@ -667,11 +1016,21 @@ if __name__ == "__main__":
         run_sweep()
 
     # Every saved series, not just this sweep's, so sweeping one dataset or
-    # machine keeps the others on the page.
-    series = {name: summary for name, results in load_all_series(RESULTS_PREFIX).items()
-              if (summary := aggregate_by_worker_count(results))}
-    if not series:
+    # machine keeps the others' pages. Series are grouped by machine: each
+    # machine gets its own fragment, and comparisons stay within one machine.
+    by_machine: dict[str, dict[str, list[dict]]] = {}
+    for name, results in load_all_series(RESULTS_PREFIX).items():
+        if aggregate_by_worker_count(results):
+            by_machine.setdefault(name.rpartition("_")[2], {})[name] = results
+    if not by_machine:
         print("No successful runs in any series -- nothing to report.")
         sys.exit(1)
 
-    build_report(series)
+    for machine, group in by_machine.items():
+        fragment_name = (LAPTOP_FRAGMENT if machine == LAPTOP_MACHINE
+                         else f"_performance_section_{machine}.html")
+        if len(group) > 1 and machine != LAPTOP_MACHINE:
+            build_comparison_report(group, fragment_name)
+        else:
+            build_report({name: aggregate_by_worker_count(results) for name, results in group.items()},
+                         fragment_name)
