@@ -29,7 +29,7 @@ on their own.
 - <span class="badge done">Done</span> Global → ego → camera → pixel projection, validated
 - <span class="badge done">Done</span> Ray-parallelized ingestion and worker-count benchmark
 - <span class="badge done">Done</span> Geometric BEV fusion: built, validated, and [published](bev.html)
-- <span class="badge todo">Up next</span> Full-dataset ingestion run
+- <span class="badge done">Done</span> Full-dataset ingestion run, [benchmarked](result-ray-scaling-trainval.html) on v1.0-trainval
 - <span class="badge progress">Reading</span> BEV networks: Lift-Splat-Shoot, BEVFormer, BEVFusion, and a survey
 - <span class="badge todo">Optional</span> CAN-bus EKF pose estimate vs. nuScenes' ground-truth pose
 

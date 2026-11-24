@@ -41,16 +41,31 @@ class Result(NamedTuple):
 RESULTS = [
     Result(
         slug="ray-scaling",
-        title="Ray scaling benchmark",
-        summary="How ingestion's wall time changes with the number of Ray workers: at best "
-                "{{stat:benchmark.best_speedup|.2f}}× faster, at {{stat:benchmark.best_workers}} "
-                "workers, and why it stops there.",
+        title="Ray scaling benchmark: v1.0-mini",
+        summary="How ingestion's wall time changes with the number of Ray workers on v1.0-mini, "
+                "run on a laptop: at best {{stat:benchmark.best_speedup|.2f}}× faster, at "
+                "{{stat:benchmark.best_workers}} workers, and why it stops there.",
         content="result_ray_scaling.md",
         dates="benchmark.py",
         fragment="_performance_section.html",
         anchor="performance",
         # benchmark.py's later feat: commit is the task-layout experiment's.
         date="Nov 1, 2026",
+    ),
+    Result(
+        slug="ray-scaling-trainval",
+        title="Ray scaling benchmark: v1.0-trainval",
+        summary="The same sweep on the full trainval split ({{stat:benchmark_trainval.scenes}} "
+                "scenes), on a {{stat:benchmark_trainval.cpus}}-CPU pod: "
+                "{{stat:benchmark_trainval.best_speedup|.2f}}× faster at "
+                "{{stat:benchmark_trainval.best_workers}} workers, against "
+                "{{stat:benchmark_trainval.mini_best_speedup|.2f}}× for v1.0-mini on the same machine.",
+        content="result_ray_scaling_trainval.md",
+        dates="benchmark.py",
+        fragment="_performance_section_runpod.html",
+        anchor="scaling",
+        # Hand-dated to the Runpod sweeps: benchmark.py's commits span several results.
+        date="Nov 23, 2026",
     ),
     Result(
         slug="projection-accuracy",

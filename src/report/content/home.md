@@ -36,7 +36,8 @@ validated, with the interactive views published. **Reading:** Lift-Splat-Shoot, 
 of the learned BEV papers. See the [roadmap](roadmap.html) for what comes next.
 
 <div class="stats">
-<a class="stat" href="result-ray-scaling.html"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup ({{stat:benchmark.best_workers}} workers), and why it stops there</div></a>
+<a class="stat" href="result-ray-scaling.html"><div class="value">{{stat:benchmark.best_speedup|.2f}}×</div><div class="label">best Ray speedup on v1.0-mini ({{stat:benchmark.best_workers}} workers), and why it stops there</div></a>
+<a class="stat" href="result-ray-scaling-trainval.html"><div class="value">{{stat:benchmark_trainval.best_speedup|.2f}}×</div><div class="label">Ray speedup on the full v1.0-trainval split ({{stat:benchmark_trainval.best_workers}} workers)</div></a>
 <a class="stat" href="bev.html"><img class="thumb" src="bev_thumbnail.png" alt="Top-down view of LiDAR points coloured by camera, with annotated boxes"><div class="label">LiDAR + camera fusion in bird's-eye view: explore the interactive views</div></a>
 </div>
 

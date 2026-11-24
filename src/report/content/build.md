@@ -93,7 +93,7 @@ minimum-area cutoff for the image gallery is a setting (`config.toml`), not a co
 ## 4 · Ray-parallelized ingestion <span class="badge done">Done</span> {: #ray }
 <!-- Hand-dated: later feat: commits to partition.py/benchmark.py (the task-layout
 experiment, see experiments.md) aren't part of this milestone. -->
-Oct 9 – Nov 1, 2026 · [benchmark](result-ray-scaling.html)
+Oct 9 – Nov 1, 2026 · [benchmark on v1.0-mini](result-ray-scaling.html)
 {: .meta }
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Performance benchmarking</span></div>
 
@@ -246,8 +246,9 @@ never where the time went. The full write-up is on the new
   runs, is what showed where the time actually goes: bbox projection, which is the next thing
   worth measuring.
 
-## 8 · Full-dataset ingestion run <span class="badge todo">Up next</span> {: #full-dataset }
-Not yet started · [benchmark](result-ray-scaling.html)
+## 8 · Full-dataset ingestion run <span class="badge done">Done</span> {: #full-dataset }
+<!-- Hand-dated: from the first commit preparing the Runpod run to the sweeps themselves. -->
+Nov 20 – Nov 23, 2026 · [benchmark on v1.0-trainval](result-ray-scaling-trainval.html)
 {: .meta }
 
 **Goal.** Find out whether the parallelism measured on `v1.0-mini`
@@ -258,4 +259,19 @@ was too small to expose.
 
 **Approach.** Run the same Ray-parallelized ingestion pipeline (`partition.py`) against the
 full dataset on Runpod, repeating the worker-count sweep `benchmark.py` already runs for
-mini.
+mini. Mini was swept again on the same pod, so the comparison changes only the dataset.
+
+**Result.** On a {{stat:benchmark_trainval.cpus}}-CPU pod, trainval ran
+{{stat:benchmark_trainval.best_speedup|.2f}}× faster at {{stat:benchmark_trainval.best_workers}}
+workers than at one, against {{stat:benchmark_trainval.mini_best_speedup|.2f}}× (at
+{{stat:benchmark_trainval.mini_best_workers}} workers) for mini on the same machine: a dataset
+this size gives the workers enough to do. The limit is the fixed startup, mostly loading the
+devkit's tables, which is {{stat:benchmark_trainval.startup_share_max|.0%}} of a
+{{stat:benchmark_trainval.max_workers}}-worker run. Leaving startup out, the rest of the run
+was {{stat:benchmark_trainval.work_speedup|.2f}}× faster. Disk I/O was not a bottleneck: Parquet
+writes averaged at most {{stat:benchmark_trainval.write_ms_max|.0f}} ms per task at any worker
+count.
+
+**How I checked it.** The export from the sweep's last run
+{{stat:benchmark_trainval.export_check}}: every devkit record present once, nothing extra,
+every row attached to the right sample.
