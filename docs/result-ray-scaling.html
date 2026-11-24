@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ray scaling benchmark · Results · AV Perception</title>
+<title>Ray scaling benchmark: v1.0-mini · Results · AV Perception</title>
 <script charset="utf-8" src="https://cdn.plot.ly/plotly-4.0.0.min.js" integrity="sha256-FEYfO0yRyLtZCpnW0Dw/0DHKQO7Afrq3ml4+rBB818o=" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -156,11 +156,12 @@ a.stat:hover { border-color: var(--accent); background: var(--accent-soft); }
 <nav class="sections"><a href="#about">About</a> <a href="#performance">Data</a></nav>
 <section id="about" class="prose">
 <p class="meta"><a href="results.html">← All results</a></p>
-<h1 id="ray-scaling-benchmark">Ray scaling benchmark</h1>
-<p class="meta">Nov 1, 2026 · <a href="build.html#ray">build log §4</a> · <a href="experiment-ray-task-layout.html">related experiment</a></p>
-<p class="lede">How ingestion's wall time changes with the number of Ray workers on <code>v1.0-mini</code>. The best
-speedup is 1.53× at 4 workers;
-the charts below break the time into phases to show why it stops there.</p>
+<h1 id="ray-scaling-benchmark-v10-mini">Ray scaling benchmark: v1.0-mini</h1>
+<p class="meta">Nov 1, 2026 · <a href="build.html#ray">build log §4</a> · <a href="experiment-ray-task-layout.html">related experiment</a> · <a href="result-ray-scaling-trainval.html">v1.0-trainval benchmark</a></p>
+<p class="lede">How ingestion's wall time changes with the number of Ray workers on <code>v1.0-mini</code>, run on a
+laptop. The best speedup is 1.53× at
+4 workers; the charts below break the time into phases to show
+why it stops there.</p>
 </section>
 <section id="performance">
 

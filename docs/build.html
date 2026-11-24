@@ -218,7 +218,7 @@ has no separately annotated 2D boxes). And where IoU dips at all, it's on tiny o
 boxes, where a sub-pixel difference is a large fraction of the box. That's why the
 minimum-area cutoff for the image gallery is a setting (<code>config.toml</code>), not a constant.</p>
 <h2 id="ray">4 · Ray-parallelized ingestion <span class="badge done">Done</span></h2>
-<p class="meta">Oct 9 – Nov 1, 2026 · <a href="result-ray-scaling.html">benchmark</a></p>
+<p class="meta">Oct 9 – Nov 1, 2026 · <a href="result-ray-scaling.html">benchmark on v1.0-mini</a></p>
 <div class="tags"><span class="tag">Ray</span> <span class="tag">Performance benchmarking</span></div>
 
 <p><strong>Goal.</strong> Find out whether parallelizing ingestion actually helps, and by how much.</p>
@@ -351,8 +351,8 @@ never where the time went. The full write-up is on the new
   runs, is what showed where the time actually goes: bbox projection, which is the next thing
   worth measuring.</li>
 </ul>
-<h2 id="full-dataset">8 · Full-dataset ingestion run <span class="badge todo">Up next</span></h2>
-<p class="meta">Not yet started · <a href="result-ray-scaling.html">benchmark</a></p>
+<h2 id="full-dataset">8 · Full-dataset ingestion run <span class="badge done">Done</span></h2>
+<p class="meta">Nov 20 – Nov 23, 2026 · <a href="result-ray-scaling-trainval.html">benchmark on v1.0-trainval</a></p>
 <p><strong>Goal.</strong> Find out whether the parallelism measured on <code>v1.0-mini</code>
 (1.53× at 4 workers) holds on
 the full nuScenes dataset, or whether a dataset orders of magnitude larger surfaces a
@@ -360,7 +360,20 @@ different bottleneck (disk I/O, worker memory, or scheduling overhead) that <cod
 was too small to expose.</p>
 <p><strong>Approach.</strong> Run the same Ray-parallelized ingestion pipeline (<code>partition.py</code>) against the
 full dataset on Runpod, repeating the worker-count sweep <code>benchmark.py</code> already runs for
-mini.</p>
+mini. Mini was swept again on the same pod, so the comparison changes only the dataset.</p>
+<p><strong>Result.</strong> On a 32-CPU pod, trainval ran
+4.55× faster at 32
+workers than at one, against 1.26× (at
+8 workers) for mini on the same machine: a dataset
+this size gives the workers enough to do. The limit is the fixed startup, mostly loading the
+devkit's tables, which is 49% of a
+32-worker run. Leaving startup out, the rest of the run
+was 8.06× faster. Disk I/O was not a bottleneck: Parquet
+writes averaged at most 37 ms per task at any worker
+count.</p>
+<p><strong>How I checked it.</strong> The export from the sweep's last run
+passed every completeness check (2,759,967 rows): every devkit record present once, nothing extra,
+every row attached to the right sample.</p>
 </section>
 </main>
 <footer class="site-footer"><div class="inner">
