@@ -1,0 +1,1 @@
+You have access to the front-view camera image.

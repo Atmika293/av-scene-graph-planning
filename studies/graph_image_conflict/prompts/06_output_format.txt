@@ -1,0 +1,2 @@
+Predict the speed and curvature for the next 6 waypoints, with 0.5-second resolution. The predicted speed and curvature changes must obey the physical constraints of the vehicle. Speed is in m/s; curvature is in 1/m, positive when turning left.
+After your reasoning, give your final answer as exactly 6 pairs of speed and curvature, in the format: [(v1, c1), (v2, c2), (v3, c3), (v4, c4), (v5, c5), (v6, c6)]. The final answer must contain only this list, with no other text.

@@ -1,0 +1,2 @@
+The perception system detected the following objects in the front-view camera's field of view. Each line gives: object ID: class | position relative to the ego (metres ahead, metres left or right) | distance from the ego | heading relative to the ego | moving or stopped, with speed | where it lies relative to the ego's current heading ("ahead in our direction" if within about 2 m either side of the ego's straight-ahead line; otherwise ahead-left, ahead-right, left or right) | approaching or moving away.
+{scene_graph}

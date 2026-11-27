@@ -1,0 +1,4 @@
+Think through the following before answering.
+1. Observe and analyze the movements of vehicles and pedestrians, lane markings, traffic lights, and any relevant objects in the scene. Describe what you observe, but do not infer the ego's action yet.
+2. What was the ego's previous intent? Was it accelerating (by how much), decelerating (by how much), or maintaining speed? Was it turning left (by how much), turning right (by how much), or following the lane?
+3. Taking into account the ego's previous intent, how should it drive in the next 3 seconds? Should the ego accelerate (by how much), decelerate (by how much), or maintain speed? Should the ego turn left (by how much), turn right (by how much), or follow the lane?
